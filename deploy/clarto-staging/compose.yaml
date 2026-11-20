@@ -45,6 +45,7 @@ x-pwb-env: &pwb-env
   RAILS_LOG_TO_STDOUT: "true"
   SKIP_MIGRATIONS: "true" # migrations run once, explicitly, from scripts/deploy.sh
   RUN_SEEDS: "false"
+  REDIS_URL: redis://pwb-redis:6379/0
   LIBERU_API_URL: http://liberu-app
   LIBERU_PUBLIC_URL: https://${LIBERU_HOST:?}
   LIBERU_MEDIA_ROOT: /liberu-storage/public
@@ -136,6 +137,7 @@ services:
       - pwb_storage:/app/storage
     depends_on:
       pwb-db: { condition: service_healthy }
+      pwb-redis: { condition: service_healthy }
 
   pwb-worker:
     image: clarto/pwb:${PWB_REF:?}
@@ -146,6 +148,7 @@ services:
       - pwb_storage:/app/storage
     depends_on:
       pwb-db: { condition: service_healthy }
+      pwb-redis: { condition: service_healthy }
 
   # Liberu -> PWB catalog sync, keyed by property reference (idempotent).
   pwb-sync:
@@ -163,7 +166,21 @@ services:
       - liberu_storage:/liberu-storage:ro
     depends_on:
       pwb-db: { condition: service_healthy }
+      pwb-redis: { condition: service_healthy }
       liberu-app: { condition: service_healthy }
+
+  # Cache, Logster, rails_performance and ActionCable in PWB all expect Redis.
+  pwb-redis:
+    image: redis:7.4.5-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - pwb_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   pwb-db:
     image: postgres:17.6-alpine
@@ -186,4 +203,5 @@ volumes:
   liberu_db:
   liberu_storage:
   pwb_db:
+  pwb_redis:
   pwb_storage:

@@ -37,6 +37,8 @@ ENV RAILS_ENV=production NODE_ENV=production BUNDLE_DEPLOYMENT=1 BUNDLE_PATH=/us
     BUNDLE_WITHOUT="development:test" RAILS_LOG_TO_STDOUT=true RAILS_SERVE_STATIC_FILES=true
 COPY --from=ruby_builder /usr/local/bundle /usr/local/bundle
 COPY --from=node_builder /app/app/assets/builds/ ./app/assets/builds/
+# ExecJS needs a JavaScript runtime for assets:precompile (also missing upstream)
+COPY --from=node_builder /usr/local/bin/node /usr/local/bin/node
 COPY . .
 RUN SECRET_KEY_BASE=dummy_key_for_precompilation bundle exec rake assets:precompile \
  && mkdir -p tmp/pids tmp/cache tmp/sockets log storage \
