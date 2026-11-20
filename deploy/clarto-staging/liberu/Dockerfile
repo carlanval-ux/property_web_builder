@@ -30,12 +30,15 @@ COPY php-staging.ini "$PHP_INI_DIR/conf.d/zz-staging.ini"
 WORKDIR /var/www/html
 COPY patch-migrations.php /tmp/patch-migrations.php
 COPY clarto-identity.patch /tmp/clarto-identity.patch
+# Whole files for modules whose published version differs too much from the tracked copy for a patch.
+COPY overlay/ /tmp/overlay/
 COPY --from=src --chown=www-data:www-data . .
 # composer install replaces modules/ and themes/ with the Packagist releases, so the CLARTO
 # identity changes tracked there are re-applied afterwards (the build fails if a hunk no longer fits).
 RUN rm -rf .git .env \
  && composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
  && patch -p1 --forward --batch --no-backup-if-mismatch < /tmp/clarto-identity.patch \
+ && cp -a /tmp/overlay/. . \
  && sed -i -e 's/"display_name": "Liberu Base"/"display_name": "CLARTO Base"/' \
            -e 's/"display_name": "Liberu Dark"/"display_name": "CLARTO Oscuro"/' \
            -e 's/"display_name": "Liberu Default"/"display_name": "CLARTO"/' \
