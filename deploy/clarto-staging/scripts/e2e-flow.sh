@@ -56,7 +56,19 @@ catalog_code() {
   curl -sS -o /dev/null -w '%{http_code}' "${CURL_TLS[@]}" --resolve "${PWB_HOST}:443:127.0.0.1" "https://${PWB_HOST}$1"
 }
 
-sync() { dc exec -T pwb-sync bundle exec rake pwb:liberu:sync | tee /dev/stderr | grep '^\[liberu-sync\]' | tail -n1; }
+sync() { # runs one sync; retries while the periodic loop holds the advisory lock
+  local out attempt
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    out="$(dc exec -T pwb-sync bundle exec rake pwb:liberu:sync)" || { echo "$out" >&2; return 1; }
+    echo "$out" >&2
+    if ! grep -q '^\[liberu-sync\] skipped' <<<"$out"; then
+      grep '^\[liberu-sync\] {' <<<"$out" | tail -n1
+      return 0
+    fi
+    sleep 6
+  done
+  return 1
+}
 
 pwb_sql() { dc exec -T pwb-db psql -U pwb -d pwb_staging -tAc "$1" | tr -d '\r'; }
 asset_count_for() { pwb_sql "SELECT COUNT(*) FROM pwb_realty_assets WHERE reference = '$1'"; }

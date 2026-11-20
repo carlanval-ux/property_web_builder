@@ -5,16 +5,16 @@
 set -e
 
 cd /var/www/html
-as_www() { su -s /bin/sh www-data -c "$1"; }
 
 mkdir -p storage/app/public storage/framework/sessions storage/framework/views storage/framework/cache storage/logs
 chown -R www-data:www-data storage/app storage/framework storage/logs bootstrap/cache
 
 [ -L public/storage ] || ln -s /var/www/html/storage/app/public public/storage
-as_www "php artisan optimize --quiet" || echo "warning: artisan optimize failed" >&2
+runuser -u www-data -- php artisan optimize --quiet || echo "warning: artisan optimize failed" >&2
 
 if [ "$1" = "php" ]; then
-  # worker / scheduler / one-off artisan commands run as the web user
-  exec su -s /bin/sh www-data -c "$(printf '%s ' "$@")"
+  # worker / scheduler / one-off artisan commands run as the web user,
+  # arguments passed through untouched (no shell re-parsing)
+  exec runuser -u www-data -- "$@"
 fi
 exec "$@"
