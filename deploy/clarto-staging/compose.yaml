@@ -46,6 +46,11 @@ x-liberu-env: &liberu-env
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   GOOGLE_REDIRECT_URI: https://${LIBERU_HOST:?}/oauth/google/callback
+  # GoHighLevel: oportunidad ganada → expediente (vacío = webhook cerrado)
+  GHL_API_TOKEN: ${GHL_API_TOKEN:-}
+  GHL_LOCATION_ID: ${GHL_LOCATION_ID:-}
+  GHL_PIPELINE_ID: ${GHL_PIPELINE_ID:-}
+  GHL_WEBHOOK_SECRET: ${GHL_WEBHOOK_SECRET:-}
   # pisos.com (envíos reales desactivados por defecto)
   PISOS_ENABLED: ${PISOS_ENABLED:-false}
   PISOS_DRIVER: ${PISOS_DRIVER:-simulado}
