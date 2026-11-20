@@ -85,8 +85,24 @@ scripts/panel-admin.sh persona@clarto.es "Nombre Apellido"
   servir); sin datos internos; sin duplicados; `noindex`.
 * `scripts/demo-catalogo.sh [--retirar]`: dos anuncios ficticios para revisar la vista previa.
 
+## Módulos
+
+Inventario completo con versiones: [`MODULOS.md`](MODULOS.md). Resumen: el fork usa el mismo `composer.json` y
+`composer.lock` que el proyecto oficial; los 78 módulos inmobiliarios (portales incluidos) están instalados y
+cargados. «Modules» aparece vacío porque solo lista módulos `feature` y los oficiales son todos «infraestructura».
+
 ## Copias de seguridad
 
 Política acordada: **backup automático del VPS de OVH** (diario, 18:40 UTC; la opción estándar guarda la última
-copia). El temporizador propio (`clarto-backup.timer`) está desactivado; `backup.sh`, `restore.sh` y
-`restore-test.sh` siguen disponibles si se quieren copias lógicas.
+copia). Además, antes de cada cambio de versión:
+
+```bash
+sudo scripts/backup.sh          # SQLite (VACUUM INTO) + volumen de ficheros + .env → /srv/clarto-staging/backups/<fecha>
+sudo scripts/restore-test.sh    # restaura en un proyecto aislado, aplica migraciones y compara recuentos
+```
+
+## Volver atrás (rollback)
+
+1. `git revert` del commit que cambió `versions.env` (o fijar el `LIBERU_REF` anterior) y `git push`.
+2. En el servidor: `git pull && scripts/deploy.sh` (reconstruye la imagen anterior).
+3. Si las migraciones nuevas cambiaron datos: `sudo scripts/restore.sh /srv/clarto-staging/backups/<fecha> --yes`.
