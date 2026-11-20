@@ -41,5 +41,5 @@ set_env MAIL_USERNAME "$user"
 set_env MAIL_PASSWORD "'$pass'"   # single quotes: compose does not interpolate $ in them
 set_env MAIL_FROM_ADDRESS "$user"
 unset pass
-dc up -d liberu-app liberu-worker liberu-scheduler >/dev/null
+dc up -d --force-recreate liberu-app liberu-worker liberu-scheduler >/dev/null
 log "panel mail now goes through $host:$port as $user. Test it: scripts/set-smtp.sh --test <recipient>"
