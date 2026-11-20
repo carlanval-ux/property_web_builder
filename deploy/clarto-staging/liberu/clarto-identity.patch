@@ -17,7 +17,7 @@ index 8a7cd2f5..0b6f2c41 100644
          ];
      }
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..80f2d8c8 100644
+index 65c24053..e7dea2c0 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -52,15 +52,16 @@ index 65c24053..80f2d8c8 100644
              ->renderHook(
                  PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                  fn (): string => Blade::render(
-@@ -64,6 +72,7 @@ public function panel(Panel $panel): Panel
+@@ -64,6 +72,8 @@ public function panel(Panel $panel): Panel
              ->discoverPages(in: __DIR__.'/../../Filament/Pages', for: 'Liberu\RealEstate\Application\Filament\Pages')
              ->pages([
                  Dashboard::class,
 +                \App\Filament\Pages\AiSettings::class,
++                \App\Filament\Pages\MailSettings::class,
              ])
              // Labels are deferred (Closures), not eager __() calls: this array is
              // built once at panel registration, before SetLocale middleware has
-@@ -88,7 +97,6 @@ public function panel(Panel $panel): Panel
+@@ -88,7 +98,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
