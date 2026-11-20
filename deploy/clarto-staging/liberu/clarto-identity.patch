@@ -16,8 +16,24 @@ index 8a7cd2f5..0b6f2c41 100644
              DeleteAction::make(),
          ];
      }
+diff --git a/modules/real-estate-application/src/Filament/Pages/Dashboard.php b/modules/real-estate-application/src/Filament/Pages/Dashboard.php
+index 143acb4c..85bff800 100644
+--- a/modules/real-estate-application/src/Filament/Pages/Dashboard.php
++++ b/modules/real-estate-application/src/Filament/Pages/Dashboard.php
+@@ -10,6 +10,11 @@ final class Dashboard extends BaseDashboard
+ {
+     protected static ?string $title = 'Operations overview';
+ 
++    // CLARTO: own navigation statics, so grouping this page does not move every page sharing Page's.
++    protected static string|\UnitEnum|null $navigationGroup = null;
++
++    protected static ?int $navigationSort = null;
++
+     protected function getHeaderActions(): array
+     {
+         return [Action::make('setup')->label(InstallationSetupWizard::isComplete() ? 'Installation settings' : 'Set up platform')
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..4f945442 100644
+index 65c24053..960809dc 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -62,7 +78,15 @@ index 65c24053..4f945442 100644
              ])
              // Labels are deferred (Closures), not eager __() calls: this array is
              // built once at panel registration, before SetLocale middleware has
-@@ -88,7 +99,6 @@ public function panel(Panel $panel): Panel
+@@ -73,6 +84,7 @@ public function panel(Panel $panel): Panel
+             // middleware placed after SetLocale, so both resolve against the
+             // same, correct locale.
+             ->navigationGroups([
++                NavigationGroup::make(fn (): string => __('Start')),
+                 NavigationGroup::make(fn (): string => __('filament.nav_groups.sales_lettings')),
+                 NavigationGroup::make(fn (): string => __('filament.nav_groups.people_relationships')),
+                 NavigationGroup::make(fn (): string => __('filament.nav_groups.property_management')),
+@@ -88,7 +100,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -114,10 +138,20 @@ index b3863db1..db642d75 100644
              ->middleware([
                  EncryptCookies::class,
 diff --git a/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php b/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
-index 6febd55f..0170479e 100644
+index 6febd55f..020e0377 100644
 --- a/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
 +++ b/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
-@@ -68,6 +68,7 @@ private static function groupsFor(string $panel): array
+@@ -16,6 +16,9 @@ final class NavigationGroups
+      */
+     public static function configure(Panel $panel): void
+     {
++        // CLARTO: translated labels, sentence case and a Start group (App\Filament\ClartoNavigation).
++        \App\Filament\ClartoNavigation::configure($panel);
++
+         foreach (self::groupsFor($panel->getId()) as $group => $classes) {
+             foreach ($classes as $sort => $class) {
+                 if (class_exists($class) && method_exists($class, 'navigationGroup')) {
+@@ -68,6 +71,7 @@ private static function groupsFor(string $panel): array
              __('filament.nav_groups.marketing_portals') => [
                  10 => 'Liberu\\RealEstate\\MarketingFilament\\Resources\\MarketingCampaignResource',
                  20 => 'Liberu\\RealEstate\\MarketingFilament\\Resources\\NewsArticleResource',
