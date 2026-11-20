@@ -42,7 +42,7 @@ lapi() { # METHOD PATH [JSON]
     -H "Accept: application/json" -H "Content-Type: application/json" -H "X-Forwarded-Proto: https" \
     -H "Authorization: Bearer $TOKEN" ${3:+--data "$3"}
 }
-web() { curl -sS --max-time 20 "$PREVIEW$1"; }
+web() { curl -sS --max-time 20 "$PREVIEW$1" | sed 's/<!-- -->//g'; }  # React SSR text separators
 code() { curl -sS -o /dev/null --max-time 20 -w '%{http_code}' "$PREVIEW$1"; }
 in_list() { web "/inmuebles?q=E2E%20${RUN}" | grep -a -q "$1"; }
 photo() { # name colour -> path on the public disk
