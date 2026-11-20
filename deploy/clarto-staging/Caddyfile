@@ -1,0 +1,58 @@
+# CLARTO staging reverse proxy.
+# Certificates: Let's Encrypt via automatic HTTPS (TLS_MODE unset or "acme").
+# TLS_MODE=internal switches to Caddy's local CA (CI, or a host without public DNS).
+
+(tls-acme) {
+}
+
+(tls-internal) {
+	tls internal
+}
+
+(staging_headers) {
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+# Liberu is the backoffice: everything is behind HTTP basic auth (on top of
+# Filament's own login), except /api/* (Sanctum-protected, plus the read-only
+# public listing endpoint) and the /up health check.
+{$LIBERU_HOST} {
+	import tls-{$TLS_MODE:acme}
+	import staging_headers
+	encode zstd gzip
+	request_body {
+		max_size 64MB
+	}
+
+	@open path /api/* /up
+	handle @open {
+		reverse_proxy liberu-app:80
+	}
+	handle {
+		import /etc/caddy/panel_auth.caddy
+		reverse_proxy liberu-app:80
+	}
+}
+
+# PWB is the public catalog: open to everyone except the admin/editor panels,
+# management APIs and operator dashboards, which also require basic auth.
+{$PWB_HOST} {
+	import tls-{$TLS_MODE:acme}
+	import staging_headers
+	encode zstd gzip
+
+	@panels path /site_admin* /tenant_admin* /api_manage* /api/v1/* /editor* /*/editor* /users/* /*/users/* /import/* /*/import/* /export/* /*/export/* /active_storage_dashboard* /logs* /pghero* /performance* /jobs* /graphiql* /graphql* /lookbook* /api-docs* /e2e/*
+	handle @panels {
+		import /etc/caddy/panel_auth.caddy
+		reverse_proxy pwb-web:3000
+	}
+	handle {
+		reverse_proxy pwb-web:3000
+	}
+}

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_22_113311) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -352,6 +352,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_113311) do
     t.index ["template_key"], name: "index_pwb_email_templates_on_template_key"
     t.index ["website_id", "template_key"], name: "index_pwb_email_templates_on_website_id_and_template_key", unique: true
     t.index ["website_id"], name: "index_pwb_email_templates_on_website_id"
+  end
+
+  create_table "pwb_external_sync_records", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "external_reference", null: false
+    t.datetime "last_seen_at"
+    t.string "payload_digest"
+    t.jsonb "photo_map", default: [], null: false
+    t.string "photos_digest"
+    t.uuid "realty_asset_id"
+    t.string "source", null: false
+    t.string "state", default: "published", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "website_id", null: false
+    t.datetime "withdrawn_at"
+    t.index ["realty_asset_id"], name: "index_pwb_external_sync_records_on_realty_asset_id"
+    t.index ["website_id", "source", "external_reference"], name: "index_pwb_external_sync_records_unique_ref", unique: true
   end
 
   create_table "pwb_features", id: :serial, force: :cascade do |t|
@@ -1674,6 +1691,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_113311) do
   add_foreign_key "pwb_auth_audit_logs", "pwb_websites", column: "website_id"
   add_foreign_key "pwb_contacts", "pwb_websites", column: "website_id"
   add_foreign_key "pwb_email_templates", "pwb_websites", column: "website_id"
+  add_foreign_key "pwb_external_sync_records", "pwb_realty_assets", column: "realty_asset_id", on_delete: :nullify
+  add_foreign_key "pwb_external_sync_records", "pwb_websites", column: "website_id"
   add_foreign_key "pwb_features", "pwb_realty_assets", column: "realty_asset_id"
   add_foreign_key "pwb_field_keys", "pwb_websites"
   add_foreign_key "pwb_game_estimates", "pwb_game_listings", column: "game_listing_id"

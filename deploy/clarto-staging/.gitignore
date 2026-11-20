@@ -1,0 +1,7 @@
+# Host-specific state and credentials: never committed.
+.env
+.env.*
+!.env.example
+secrets/
+src/
+state/

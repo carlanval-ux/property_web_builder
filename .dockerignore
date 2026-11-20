@@ -131,3 +131,7 @@ Jenkinsfile
 *.log
 index/
 notes/
+
+# CLARTO staging bundle: host secrets, exported Liberu sources and state must
+# never end up in the PWB image (and the bundle is not needed at runtime).
+deploy/

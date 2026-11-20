@@ -1,0 +1,111 @@
+name: CLARTO staging stack
+
+# Rehearses the CLARTO staging deployment on a clean Ubuntu 24.04 machine:
+# builds both apps, deploys the compose bundle, runs the end-to-end catalog
+# flow, takes a backup and proves it restores. Also runs the connector specs.
+on:
+  push:
+    branches: [staging/clarto]
+    paths:
+      - deploy/clarto-staging/**
+      - app/services/pwb/liberu_sync/**
+      - app/models/pwb/external_sync_record.rb
+      - db/migrate/20261120120000_create_pwb_external_sync_records.rb
+      - lib/tasks/clarto_staging.rake
+      - config/environments/staging.rb
+      - spec/services/pwb/liberu_sync/**
+      - .github/workflows/clarto-staging.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clarto-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  connector-specs:
+    name: Liberu connector specs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pwb_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/pwb_test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Prepare database
+        run: bundle exec rake db:create db:schema:load
+      - name: Connector specs
+        run: bundle exec rspec spec/services/pwb/liberu_sync --format documentation
+      - name: Zeitwerk eager-load check
+        run: bundle exec rspec spec/zeitwerk_spec.rb
+
+  stack:
+    name: Deploy + E2E + backup/restore (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      BACKUP_ROOT: ${{ runner.temp }}/backups
+    defaults:
+      run:
+        working-directory: deploy/clarto-staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host info
+        run: |
+          . /etc/os-release && echo "$PRETTY_NAME"
+          docker version --format '{{.Server.Version}}'
+          docker compose version
+      - name: Generate environment (local CA, test hostnames)
+        run: |
+          scripts/init-env.sh --liberu-host crm.clarto.test --pwb-host catalogo.clarto.test --tls internal
+          echo "127.0.0.1 crm.clarto.test catalogo.clarto.test" | sudo tee -a /etc/hosts
+      - name: Deploy
+        run: scripts/deploy.sh
+      - name: Stack status
+        if: always()
+        run: |
+          set -a; . ./.env; set +a
+          docker compose -p clarto-staging --env-file .env ps
+      - name: End-to-end flow
+        run: scripts/e2e-flow.sh
+      - name: Backup
+        run: scripts/backup.sh
+      - name: Restore test (isolated project)
+        run: scripts/restore-test.sh
+      - name: Live restore + catalog still served
+        run: |
+          set -a; . ./.env; set +a
+          scripts/restore.sh "$BACKUP_ROOT/latest" --yes
+          code=$(curl -sk -o /dev/null -w '%{http_code}' --resolve "$PWB_HOST:443:127.0.0.1" "https://$PWB_HOST/es/buy")
+          echo "catalog after live restore: HTTP $code"; test "$code" = 200
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -p clarto-staging --env-file .env logs --tail 200
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clarto-staging-evidence
+          path: |
+            deploy/clarto-staging/state/
+            ${{ runner.temp }}/backups/*/manifest.txt
+          if-no-files-found: warn
