@@ -15,6 +15,7 @@ x-liberu-env: &liberu-env
   APP_KEY: ${LIBERU_APP_KEY:?}
   APP_URL: https://${LIBERU_HOST:?}
   APP_LOCALE: es
+  APP_LOCALES: es
   APP_FALLBACK_LOCALE: en
   APP_FAKER_LOCALE: es_ES
   APP_CURRENCY: EUR

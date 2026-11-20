@@ -1,0 +1,156 @@
+diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
+index 65c24053..70599151 100644
+--- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
++++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
+@@ -12,7 +12,7 @@
+ use Filament\PanelProvider;
+ use Filament\View\PanelsRenderHook;
+ use Filament\Widgets\AccountWidget;
+-use Filament\Widgets\FilamentInfoWidget;
++use Filament\Support\Colors\Color;
+ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+ use Illuminate\Cookie\Middleware\EncryptCookies;
+ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+@@ -43,16 +43,16 @@ public function panel(Panel $panel): Panel
+             ->path('admin')
+             ->login()
+             ->viteTheme('resources/css/filament/theme.css')
++            ->brandName(config('app.name'))
+             ->favicon(asset('favicon.svg'))
+-            ->brandLogo(asset('favicon.svg'))
+-            ->brandLogoHeight('2.5rem')
+-            ->colors(app(ThemeColors::class)->forSite())
++            ->brandLogo(asset('brand/clarto-logo-color.png'))
++            ->darkModeBrandLogo(asset('brand/clarto-logo-negativo.png'))
++            ->brandLogoHeight('2.25rem')
++            ->font('DM Sans')
++            ->colors([...app(ThemeColors::class)->forSite(), 'primary' => Color::hex('#173D38')])
+             ->renderHook(
+-                PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+-                fn (): string => Blade::render(
+-                    '@livewire(\'language-switcher\', [\'locales\' => $locales])',
+-                    ['locales' => config('app.supported_locales')],
+-                ),
++                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
++                fn (): string => Blade::render('<p style="margin-top:-.5rem;text-align:center;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;color:#9E5847">{{ $product }}</p>', ['product' => 'Gestión Inmobiliaria']),
+             )
+             ->renderHook(
+                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+@@ -88,7 +88,6 @@ public function panel(Panel $panel): Panel
+             ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
+             ->widgets([
+                 AccountWidget::class,
+-                FilamentInfoWidget::class,
+             ])
+             ->tenant(Team::class, ownershipRelationship: 'team')
+             ->tenantMiddleware([
+diff --git a/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
+index b3863db1..a23737d4 100644
+--- a/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
++++ b/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
+@@ -12,7 +12,7 @@
+ use Filament\PanelProvider;
+ use Filament\View\PanelsRenderHook;
+ use Filament\Widgets\AccountWidget;
+-use Filament\Widgets\FilamentInfoWidget;
++use Filament\Support\Colors\Color;
+ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+ use Illuminate\Cookie\Middleware\EncryptCookies;
+ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+@@ -36,9 +36,13 @@ public function panel(Panel $panel): Panel
+             ->id('app')
+             ->path('app')
+             ->viteTheme('resources/css/filament/theme.css')
++            ->brandName(config('app.name'))
+             ->favicon(asset('favicon.svg'))
+-            ->colors(app(ThemeColors::class)->forSite())
+-            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn (): string => Blade::render('@livewire(\'language-switcher\')'))
++            ->brandLogo(asset('brand/clarto-logo-color.png'))
++            ->darkModeBrandLogo(asset('brand/clarto-logo-negativo.png'))
++            ->brandLogoHeight('2.25rem')
++            ->font('DM Sans')
++            ->colors([...app(ThemeColors::class)->forSite(), 'primary' => Color::hex('#173D38')])
+             ->sidebarCollapsibleOnDesktop()
+             ->discoverResources(in: __DIR__.'/../../Filament/App/Resources', for: 'Liberu\RealEstate\Application\Filament\App\Resources')
+             ->discoverPages(in: __DIR__.'/../../Filament/App/Pages', for: 'Liberu\RealEstate\Application\Filament\App\Pages')
+@@ -94,7 +98,6 @@ public function panel(Panel $panel): Panel
+             ->discoverWidgets(in: __DIR__.'/../../Filament/App/Widgets', for: 'Liberu\RealEstate\Application\Filament\App\Widgets')
+             ->widgets([
+                 AccountWidget::class,
+-                FilamentInfoWidget::class,
+             ])
+             ->middleware([
+                 EncryptCookies::class,
+diff --git a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
+index d619b396..dc401f3d 100644
+--- a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
++++ b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
+@@ -153,7 +153,7 @@ public static function form(Schema $schema): Schema
+                             TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
+                             TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
+                             TextInput::make('reception_rooms')->label(__('filament.property.fields.reception_rooms'))->numeric()->minValue(0),
+-                            TextInput::make('area_sqft')->label(__('Area (sq ft)'))->numeric()->minValue(0),
++                            TextInput::make('area_sqft')->label('Superficie construida (m²)')->numeric()->minValue(0),
+                             TextInput::make('year_built')
+                                 ->label(__('filament.property.fields.year_built'))
+                                 ->numeric()
+@@ -277,7 +277,7 @@ public static function table(Table $table): Table
+                 TextColumn::make('price')->label(__('filament.property.fields.price'))->numeric()->sortable(),
+                 TextColumn::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->sortable(),
+                 TextColumn::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->sortable(),
+-                TextColumn::make('area_sqft')->label(__('Area (sq ft)'))->sortable(),
++                TextColumn::make('area_sqft')->label('Superficie (m²)')->sortable(),
+                 TextColumn::make('year_built')->label(__('filament.property.fields.year_built'))->sortable(),
+                 TextColumn::make('price_per_square_foot')->label(__('Price per sq ft'))->state(fn (Property $record): ?float => $record->pricePerSquareFoot())->numeric(decimalPlaces: 2),
+                 TextColumn::make('price_per_square_meter')->label(__('Price per m²'))->state(fn (Property $record): ?float => $record->pricePerSquareMeter())->numeric(decimalPlaces: 2),
+@@ -346,7 +346,7 @@ public static function table(Table $table): Table
+                         TextInput::make('label')->label(__('filament.property.fields.label'))->required()->maxLength(80),
+                         TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
+                         TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
+-                        TextInput::make('area_sqft')->label(__('Area (sq ft)'))->numeric()->minValue(0),
++                        TextInput::make('area_sqft')->label('Superficie construida (m²)')->numeric()->minValue(0),
+                     ])
+                     ->action(fn (Property $record, array $data): mixed => app(UpsertPropertyUnit::class)->handle($record, (int) auth()->user()->current_team_id, $data)),
+                 Action::make('key')
+diff --git a/themes/real-estate-default/resources/lang/en/messages.php b/themes/real-estate-default/resources/lang/en/messages.php
+index d56e1f5a..0226d2fc 100644
+--- a/themes/real-estate-default/resources/lang/en/messages.php
++++ b/themes/real-estate-default/resources/lang/en/messages.php
+@@ -1,7 +1,7 @@
+ <?php
+ 
+ return [
+-    'brand' => 'Liberu Real Estate',
++    'brand' => 'CLARTO Inmobiliaria',
+     'navigation' => [
+         'properties' => 'Properties',
+         'how_it_works' => 'How it works',
+@@ -48,7 +48,7 @@
+         'no_image' => 'Property image unavailable',
+         'empty' => 'No properties are available yet.',
+     ],
+-    'footer' => 'A clearer way to move. Built with Liberu Real Estate.',
++    'footer' => 'Lo complejo, claro.',
+     'features' => [
+         'search_title' => 'Search with clarity',
+         'search_body' => 'Useful filters and honest details help you spend time on the homes that fit.',
+diff --git a/themes/real-estate-default/resources/logos/real-estate-mark-dark.svg b/themes/real-estate-default/resources/logos/real-estate-mark-dark.svg
+index 1507a118..e57d06d4 100644
+--- a/themes/real-estate-default/resources/logos/real-estate-mark-dark.svg
++++ b/themes/real-estate-default/resources/logos/real-estate-mark-dark.svg
+@@ -1,4 +1,4 @@
+ <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+-  <title>Liberu Real Estate</title>
++  <title>CLARTO</title>
+   <path fill="none" stroke="#effbf5" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M8 23 24 9l16 14v16H8zM18 39V27h12v12M5 23h38"/>
+ </svg>
+diff --git a/themes/real-estate-default/resources/logos/real-estate-mark.svg b/themes/real-estate-default/resources/logos/real-estate-mark.svg
+index be444254..be0c32f6 100644
+--- a/themes/real-estate-default/resources/logos/real-estate-mark.svg
++++ b/themes/real-estate-default/resources/logos/real-estate-mark.svg
+@@ -1,4 +1,4 @@
+ <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+-  <title>Liberu Real Estate</title>
++  <title>CLARTO</title>
+   <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M8 23 24 9l16 14v16H8zM18 39V27h12v12M5 23h38"/>
+ </svg>

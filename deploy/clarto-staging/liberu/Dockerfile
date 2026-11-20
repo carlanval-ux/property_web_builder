@@ -29,9 +29,19 @@ COPY php-staging.ini "$PHP_INI_DIR/conf.d/zz-staging.ini"
 
 WORKDIR /var/www/html
 COPY patch-migrations.php /tmp/patch-migrations.php
+COPY clarto-identity.patch /tmp/clarto-identity.patch
 COPY --from=src --chown=www-data:www-data . .
+# composer install replaces modules/ and themes/ with the Packagist releases, so the CLARTO
+# identity changes tracked there are re-applied afterwards (the build fails if a hunk no longer fits).
 RUN rm -rf .git .env \
  && composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
+ && patch -p1 --forward --batch --no-backup-if-mismatch < /tmp/clarto-identity.patch \
+ && sed -i -e 's/"display_name": "Liberu Base"/"display_name": "CLARTO Base"/' \
+           -e 's/"display_name": "Liberu Dark"/"display_name": "CLARTO Oscuro"/' \
+           -e 's/"display_name": "Liberu Default"/"display_name": "CLARTO"/' \
+           -e 's/"display_name": "Liberu Real Estate Default"/"display_name": "CLARTO Inmobiliaria"/' \
+           -e 's/built on Liberu Base/built on CLARTO Base/' themes/*/theme.json \
+ && ! grep -l '"display_name": "Liberu' themes/*/theme.json \
  && php artisan package:discover --ansi \
  && php artisan filament:upgrade --ansi \
  && php /tmp/patch-migrations.php /var/www/html \
