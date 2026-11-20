@@ -44,7 +44,7 @@ lapi() { # METHOD PATH [JSON]
 }
 web() { curl -sS --max-time 20 "$PREVIEW$1"; }
 code() { curl -sS -o /dev/null --max-time 20 -w '%{http_code}' "$PREVIEW$1"; }
-in_list() { web "/inmuebles?q=E2E%20${RUN}" | grep -q "$1"; }
+in_list() { web "/inmuebles?q=E2E%20${RUN}" | grep -a -q "$1"; }
 photo() { # name colour -> path on the public disk
   dc exec -T -u www-data liberu-app php -r '
     $i = imagecreatetruecolor(1600, 1200); imagefill($i, 0, 0, hexdec("'"$2"'"));
@@ -71,20 +71,20 @@ check "borrador: su ficha da 404" test "$(code "/inmuebles/$slug_guess")" = 404
 log "== 3. publicar"
 lapi POST "/api/v1/real-estate/properties/$ID/transition/available" >/dev/null
 check "publicar: aparece en el listado" in_list "$REF"
-SLUG="$(web "/inmuebles?q=E2E%20${RUN}" | grep -oE "/inmuebles/[a-z0-9-]+-${REF,,}" | head -n1 | sed 's#/inmuebles/##')"
+SLUG="$(web "/inmuebles?q=E2E%20${RUN}" | grep -a -oE "/inmuebles/[a-z0-9-]+-${REF,,}" | head -n1 | sed 's#/inmuebles/##')"
 check "publicar: ficha con URL propia ($SLUG)" test "$(code "/inmuebles/$SLUG")" = 200
 FICHA="$(web "/inmuebles/$SLUG")"
-check "ficha: marcada como «Inmueble de prueba»" grep -q "Inmueble de prueba" <<<"$FICHA"
-check "ficha: precio 250.000 €" grep -Eq "250[.,]000" <<<"$FICHA"
-check "ficha: zona Puerto de Sagunto" grep -q "Puerto de Sagunto" <<<"$FICHA"
-check "ficha: «Solicitar visita» con la referencia" grep -q "inmueble=${REF}" <<<"$FICHA"
-check "ficha: WhatsApp con la referencia" grep -q "wa.me/34623229779?text=[^\"]*${REF}" <<<"$FICHA"
-check "ficha: noindex (anuncio de prueba)" grep -qi 'name="robots" content="noindex' <<<"$FICHA"
-check "ficha: canónica a clarto.es" grep -q "rel=\"canonical\" href=\"https://clarto.es/inmuebles/$SLUG\"" <<<"$FICHA"
-check "ficha: sin dirección exacta" not grep -q "Calle Ficticia" <<<"$FICHA"
-check "ficha: sin notas internas" not grep -q "NOTA-INTERNA-$RUN" <<<"$FICHA"
+check "ficha: marcada como «Inmueble de prueba»" grep -a -q "Inmueble de prueba" <<<"$FICHA"
+check "ficha: precio 250.000 €" grep -a -Eq "250[.,]000" <<<"$FICHA"
+check "ficha: zona Puerto de Sagunto" grep -a -q "Puerto de Sagunto" <<<"$FICHA"
+check "ficha: «Solicitar visita» con la referencia" grep -a -q "inmueble=${REF}" <<<"$FICHA"
+check "ficha: WhatsApp con la referencia" grep -a -q "wa.me/34623229779?text=[^\"]*${REF}" <<<"$FICHA"
+check "ficha: noindex (anuncio de prueba)" grep -a -qi 'name="robots" content="noindex' <<<"$FICHA"
+check "ficha: canónica a clarto.es" grep -a -q "rel=\"canonical\" href=\"https://clarto.es/inmuebles/$SLUG\"" <<<"$FICHA"
+check "ficha: sin dirección exacta" not grep -a -q "Calle Ficticia" <<<"$FICHA"
+check "ficha: sin notas internas" not grep -a -q "NOTA-INTERNA-$RUN" <<<"$FICHA"
 API_JSON="$(dc exec -T liberu-app curl -sS -H "X-Catalogo-Clave: ${CATALOGO_API_KEY}" "http://localhost/api/v1/catalogo/inmuebles/$REF")"
-check "API: sin dirección, notas internas ni coordenadas exactas" bash -c "! grep -qE 'Calle Ficticia|NOTA-INTERNA|39\\.664321|internal_notes|address' <<<'$API_JSON'"
+check "API: sin dirección, notas internas ni coordenadas exactas" bash -c "! grep -a -qE 'Calle Ficticia|NOTA-INTERNA|39\\.664321|internal_notes|address' <<<'$API_JSON'"
 check "API: exige la clave del servidor" test "$(curl -sS -o /dev/null -w '%{http_code}' "https://${LIBERU_HOST}/api/v1/catalogo/inmuebles")" = 401
 
 # --- 4. reintentos sin duplicados ------------------------------------------------------------------
@@ -92,55 +92,55 @@ log "== 4. reintentos"
 after_pub="$(dc exec -T liberu-app curl -sS -H "X-Catalogo-Clave: ${CATALOGO_API_KEY}" http://localhost/api/v1/catalogo/inmuebles | python3 -c 'import json,sys; print(json.load(sys.stdin)["meta"]["total_publicados"])')"
 check "publicar: exactamente una ficha nueva ($before -> $after_pub)" test "$after_pub" = "$((before + 1))"
 for _ in 1 2 3; do web "/inmuebles/$SLUG" >/dev/null; lapi POST "/api/v1/real-estate/properties/$ID/transition/available" >/dev/null; done
-check "reintentos: la referencia sigue apareciendo una sola vez" test "$(web "/inmuebles?q=E2E%20${RUN}" | grep -oE "Ref\. ${REF}" | wc -l)" = 1
+check "reintentos: la referencia sigue apareciendo una sola vez" test "$(web "/inmuebles?q=E2E%20${RUN}" | grep -a -oE "Ref\. ${REF}" | wc -l)" = 1
 
 # --- 5. cambio de precio y fotos ---------------------------------------------------------------------
 log "== 5. precio y fotos"
 lapi PATCH "/api/v1/real-estate/properties/$ID" '{"price":239000}' >/dev/null
-check "precio: la ficha muestra 239.000 €" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -Eq '239[.,]000'"
-check "precio: el listado muestra 239.000 €" bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}' | grep -Eq '239[.,]000'"
+check "precio: la ficha muestra 239.000 €" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -a -Eq '239[.,]000'"
+check "precio: el listado muestra 239.000 €" bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}' | grep -a -Eq '239[.,]000'"
 p1="$(photo "fachada-$RUN" 0x3366CC)"; p2="$(photo "salon-$RUN" 0xCC9933)"
 m1="$(lapi POST /api/v1/real-estate/media-and-documents "{\"kind\":\"photo\",\"path\":\"$p1\",\"property_id\":$ID,\"title\":\"Fachada\",\"sort_order\":1}")"
 lapi POST /api/v1/real-estate/media-and-documents "{\"kind\":\"photo\",\"path\":\"$p2\",\"property_id\":$ID,\"title\":\"Salón\",\"sort_order\":2}" >/dev/null
-M1="$(echo "$m1" | json "d['id']")"
+M1="$(echo "$m1" | json "d['id']" || true)"; [ -n "$M1" ] || log "media upload answered: $m1"
 FICHA="$(web "/inmuebles/$SLUG")"
-IMG="$(grep -oE "https://${LIBERU_HOST}/api/v1/catalogo/fotos/[0-9]+/960\?signature=[a-f0-9]+" <<<"$FICHA" | head -n1)"
+IMG="$(grep -a -oE "https://${LIBERU_HOST}/api/v1/catalogo/fotos/[0-9]+/960\?signature=[a-f0-9]+" <<<"$FICHA" | head -n1)"
 check "fotos: la ficha muestra la galería" test -n "$IMG"
-check "fotos: «Ver las 2 fotos»" grep -q "Ver las 2 fotos" <<<"$FICHA"
+check "fotos: «Ver las 2 fotos»" grep -a -q "Ver las 2 fotos" <<<"$FICHA"
 r="$(curl -sS -o /dev/null -w '%{http_code} %{content_type} %{size_download}' "$IMG")"
-check "fotos: variante WebP optimizada ($r)" grep -qE '^200 image/webp' <<<"$r"
+check "fotos: variante WebP optimizada ($r)" grep -a -qE '^200 image/webp' <<<"$r"
 tampered="$(curl -sS -o /dev/null -w '%{http_code}' "${IMG%signature=*}signature=deadbeef")"
 check "fotos: URL sin firma válida rechazada ($tampered)" test "$tampered" = 403
 lapi DELETE "/api/v1/real-estate/media-and-documents/$M1" >/dev/null
 p3="$(photo "cocina-$RUN" 0x339966)"
 lapi POST /api/v1/real-estate/media-and-documents "{\"kind\":\"photo\",\"path\":\"$p3\",\"property_id\":$ID,\"title\":\"Cocina\",\"sort_order\":3}" >/dev/null
 FICHA="$(web "/inmuebles/$SLUG")"
-check "fotos: cambio reflejado (Cocina sí, Fachada no)" bash -c "grep -q 'Cocina' <<<'$FICHA' && ! grep -q 'alt=\"Fachada\"' <<<'$FICHA'"
+check "fotos: cambio reflejado (Cocina sí, Fachada no)" bash -c "grep -a -q 'Cocina' <<<'$FICHA' && ! grep -a -q 'alt=\"Fachada\"' <<<'$FICHA'"
 
 # --- 6. reservar -------------------------------------------------------------------------------------
 log "== 6. reservar"
 lapi POST "/api/v1/real-estate/properties/$ID/transition/under_offer" >/dev/null
-check "reservado: la ficha lo indica" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -q 'Reservado'"
-check "reservado: el listado lo indica" bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}' | grep -q 'Reservado'"
-check "reservado: «Ocultar reservados» lo quita" not bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}&estado=disponible' | grep -q 'Ref. $REF'"
+check "reservado: la ficha lo indica" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -a -q 'Reservado'"
+check "reservado: el listado lo indica" bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}' | grep -a -q 'Reservado'"
+check "reservado: «Ocultar reservados» lo quita" not bash -c "curl -sS '$PREVIEW/inmuebles?q=E2E%20${RUN}&estado=disponible' | grep -a -q 'Ref. $REF'"
 
 # --- 7. retirar --------------------------------------------------------------------------------------
 log "== 7. retirar"
 lapi POST "/api/v1/real-estate/properties/$ID/transition/withdrawn" >/dev/null
 check "retirado: fuera del listado" not in_list "$REF"
 c="$(code "/inmuebles/$SLUG")"; check "retirado: enlace directo da 404 ($c)" test "$c" = 404
-check "retirado: página «ya no está publicado»" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -q 'ya no está publicado'"
+check "retirado: página «ya no está publicado»" bash -c "curl -sS '$PREVIEW/inmuebles/$SLUG' | grep -a -q 'ya no está publicado'"
 r="$(curl -sS -o /dev/null -w '%{http_code}' "$IMG")"
 check "retirado: sus fotos dejan de servirse ($r)" test "$r" = 404
 
 # --- 8. vista previa: sin contraseña y noindex -------------------------------------------------------
 log "== 8. vista previa"
 check "vista previa: abierta sin contraseña" test "$(code /inmuebles)" = 200
-check "vista previa: cabecera noindex" bash -c "curl -sSI '$PREVIEW/inmuebles' | grep -qi '^x-robots-tag: noindex'"
-check "vista previa: robots.txt bloquea todo" bash -c "curl -sS '$PREVIEW/robots.txt' | grep -qx 'Disallow: /'"
-check "filtros: combinación con noindex" bash -c "curl -sS '$PREVIEW/inmuebles?operacion=venta&precio_max=300000' | grep -qi 'name=\"robots\" content=\"noindex'"
+check "vista previa: cabecera noindex" bash -c "curl -sSI '$PREVIEW/inmuebles' | grep -a -qi '^x-robots-tag: noindex'"
+check "vista previa: robots.txt bloquea todo" bash -c "curl -sS '$PREVIEW/robots.txt' | grep -a -qx 'Disallow: /'"
+check "filtros: combinación con noindex" bash -c "curl -sS '$PREVIEW/inmuebles?operacion=venta&precio_max=300000' | grep -a -qi 'name=\"robots\" content=\"noindex'"
 z="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$PREVIEW/inmuebles/venta/puerto-de-sagunto")"
-check "zona sin contenido propio: redirige al listado ($z)" grep -qE '^30[127] .*/inmuebles\?' <<<"$z"
+check "zona sin contenido propio: redirige al listado ($z)" grep -a -qE '^30[127] .*/inmuebles\?' <<<"$z"
 
 artisan '\Laravel\Sanctum\PersonalAccessToken::where("name","e2e-catalogo-'"$RUN"'")->delete(); echo 1;' >/dev/null
 log "RESULT: $PASS passed, $FAIL failed (ref $REF, withdrawn; log $LOG)"
