@@ -39,15 +39,18 @@ RUN rm -rf .git .env \
  && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache
 
-# Front-end bundles (Filament theme, theme assets): Vite needs the installed
-# vendor/ tree (the Filament theme CSS imports from it), so build from the app stage.
-FROM node:22.18-bookworm-slim AS assets
-WORKDIR /src
-COPY --from=app /var/www/html /src
-RUN npm ci --no-audit --no-fund && npm run build
+# Front-end bundles (Filament theme, theme assets). Vite needs the installed
+# vendor/ tree (the Filament theme CSS imports from it) and PHP (the Wayfinder
+# plugin runs `php artisan wayfinder:generate`), so Node is added to the app stage.
+FROM app AS assets
+COPY --from=node:22.18-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22.18-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && APP_KEY=base64:$(head -c32 /dev/urandom | base64) DB_CONNECTION=sqlite DB_DATABASE=:memory: \
+    sh -c 'npm ci --no-audit --no-fund && npm run build'
 
 FROM app
-COPY --from=assets --chown=www-data:www-data /src/public/build public/build
+COPY --from=assets --chown=www-data:www-data /var/www/html/public/build public/build
 
 # CLARTO identity (build context "brand" = deploy/clarto-staging/brand)
 COPY --from=brand --chown=www-data:www-data clarto-favicon.svg public/favicon.svg
