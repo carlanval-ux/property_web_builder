@@ -1,5 +1,5 @@
 # CLARTO staging reverse proxy.
-# Certificates: Let's Encrypt via automatic HTTPS (TLS_MODE unset or "acme").
+# Certificates: Let's Encrypt with automatic renewal (TLS_MODE unset or "acme").
 # TLS_MODE=internal switches to Caddy's local CA (CI, or a host without public DNS).
 
 (tls-acme) {
@@ -9,42 +9,79 @@
 	tls internal
 }
 
-(staging_headers) {
+(security_headers) {
 	header {
-		X-Robots-Tag "noindex, nofollow"
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
+		-X-Powered-By
+		-X-Runtime
+		-X-Request-Id
 	}
 }
 
-# Liberu is the backoffice: everything is behind HTTP basic auth (on top of
-# Filament's own login), except /api/* (Sanctum-protected, plus the read-only
-# public listing endpoint) and the /up health check.
+# Catalog indexing. CATALOG_INDEXING=off (default) while fictitious listings
+# exist: noindex header on every response and a robots.txt that disallows all.
+# Switch with scripts/catalog-indexing.sh, which refuses while test listings remain.
+(indexing-off) {
+	header X-Robots-Tag "noindex, nofollow"
+	handle /robots.txt {
+		header Content-Type "text/plain; charset=utf-8"
+		respond <<TXT
+			User-agent: *
+			Disallow: /
+			TXT 200
+	}
+}
+
+(indexing-on) {
+}
+
+# ---------------------------------------------------------------------------
+# Panel (CLARTO Gestión Inmobiliaria): internal tool. Every page requires a
+# session (APP_STAFF_ONLY in the app); photos and uploads under /storage are
+# served by Apache, so they are checked against the same session here.
+# ---------------------------------------------------------------------------
 {$LIBERU_HOST} {
 	import tls-{$TLS_MODE:acme}
-	import staging_headers
+	import security_headers
+	header X-Robots-Tag "noindex, nofollow"
 	encode zstd gzip
 	request_body {
 		max_size 64MB
 	}
 
-	@open path /api/* /up
-	handle @open {
+	# Public self-registration does not exist on the panel.
+	@register path /register /register/* /admin/register* /app/register* /api/v1/auth/register
+	respond @register 404
+
+	# Test mailbox (Mailpit): every mail both apps send in staging lands here.
+	handle /buzon* {
+		import /etc/caddy/panel_auth.caddy
+		reverse_proxy mailpit:8025
+	}
+
+	handle /storage/* {
+		forward_auth liberu-app:80 {
+			uri /_auth/check
+		}
 		reverse_proxy liberu-app:80
 	}
+
 	handle {
-		import /etc/caddy/panel_auth.caddy
 		reverse_proxy liberu-app:80
 	}
 }
 
-# PWB is the public catalog: open to everyone except the admin/editor panels,
-# management APIs and operator dashboards, which also require basic auth.
+# ---------------------------------------------------------------------------
+# Catalog (CLARTO Inmobiliaria): public. Admin/editor panels, management APIs
+# and operator dashboards stay behind basic auth.
+# ---------------------------------------------------------------------------
 {$PWB_HOST} {
 	import tls-{$TLS_MODE:acme}
-	import staging_headers
+	import security_headers
+	import indexing-{$CATALOG_INDEXING:off}
 	encode zstd gzip
 
 	@panels path /site_admin* /tenant_admin* /api_manage* /api/v1/* /editor* /*/editor* /users/* /*/users/* /import/* /*/import/* /export/* /*/export/* /active_storage_dashboard* /logs* /pghero* /performance* /jobs* /graphiql* /graphql* /lookbook* /api-docs* /e2e/*

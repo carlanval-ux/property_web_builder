@@ -131,6 +131,19 @@ RSpec.describe Pwb::LiberuSync::Importer, type: :service do
     expect(asset.sale_listings.find_by(active: true).visible).to be true
   end
 
+  it "marks every listing with the test label and re-syncs when the label is removed" do
+    run([item], test_label: "Inmueble de prueba")
+    listing = asset.sale_listings.find_by(active: true)
+    Mobility.with_locale(:es) do
+      expect(listing.title).to eq("Inmueble de prueba · Piso CLARTO de prueba")
+      expect(listing.description).to start_with("Inmueble de prueba: ficha ficticia")
+    end
+
+    result = run([item])
+    expect(result.updated).to eq(["RE-2026-00042"])
+    Mobility.with_locale(:es) { expect(listing.reload.title).to eq("Piso CLARTO de prueba") }
+  end
+
   it "moves a property from sale to rent without leaving the sale listing visible" do
     run([item])
     run([item(deal_type: "rent", price: "1200.00")])

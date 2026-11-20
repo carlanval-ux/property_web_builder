@@ -176,6 +176,20 @@ check "photos: replaced one (1 added, 1 removed)" grep -q '"photos_added":1,"pho
 check "photos: still 2 photos" test "$(photo_count_for "$REF")" = 2
 check "photos: new caption present" test "$(pwb_sql "SELECT COUNT(*) FROM pwb_prop_photos p JOIN pwb_realty_assets a ON a.id = p.realty_asset_id WHERE a.reference = '$REF' AND p.description = 'Cocina'")" = 1
 
+
+# --- 6b. la ficha pública muestra fotos y la marca de prueba ------------------------------
+log "== 6b. ficha pública (como un visitante sin sesión)"
+detail_html="$(catalog "/es/properties/for-sale/$SLUG/x")"
+img_path="$(grep -oE '/rails/active_storage/[^"'"'"' )]+' <<<"$detail_html" | head -n1)"
+check "detail: page references a stored photo" test -n "$img_path"
+if [ -n "$img_path" ]; then
+  img_type="$(curl -sS -L -o /dev/null -w '%{http_code} %{content_type}' "${CURL_TLS[@]}" --resolve "${PWB_HOST}:443:127.0.0.1" "https://${PWB_HOST}${img_path}")"
+  check "detail: photo downloads as an image ($img_type)" grep -qE '^200 image/' <<<"$img_type"
+fi
+if [ -n "${CATALOG_TEST_LABEL-Inmueble de prueba}" ]; then
+  check "detail: marked as '${CATALOG_TEST_LABEL-Inmueble de prueba}'" grep -q "${CATALOG_TEST_LABEL-Inmueble de prueba}" <<<"$detail_html"
+fi
+
 # --- 7. retirada ----------------------------------------------------------------------
 log "== 7. retirada"
 lapi POST "/api/v1/real-estate/properties/$PROP_ID/transition/withdrawn" >/dev/null
@@ -193,12 +207,25 @@ check "withdraw: record marked withdrawn, asset kept (no deletion)" test "$(pwb_
 log "== 8. acceso a paneles"
 code="$(catalog_code /site_admin)"
 check "panels: PWB /site_admin requires auth (HTTP $code)" test "$code" = 401
-code="$(curl -sS -o /dev/null -w '%{http_code}' "${CURL_TLS[@]}" --resolve "${LIBERU_HOST}:443:127.0.0.1" "https://${LIBERU_HOST}/admin")"
-check "panels: Liberu /admin requires auth (HTTP $code)" test "$code" = 401
-code="$(curl -sS -o /dev/null -w '%{http_code}' "${CURL_TLS[@]}" --resolve "${LIBERU_HOST}:443:127.0.0.1" "https://${LIBERU_HOST}/storage/$p2")"
-check "panels: Liberu photo files not public (HTTP $code)" test "$code" = 401
+panel() { # panel PATH -> "<code> <redirect-url>" without a session (private window)
+  curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "${CURL_TLS[@]}" --resolve "${LIBERU_HOST}:443:127.0.0.1" "https://${LIBERU_HOST}$1"
+}
+for path in /admin /app /dashboard / /properties /contact "/admin/real-estate/properties/$PROP_ID/edit"; do
+  r="$(panel "$path")"
+  check "panel: $path without session -> login ($r)" grep -qE '^30[12] https://[^ ]+/(admin/)?login' <<<"$r"
+done
+r="$(panel /admin/login)"; check "panel: login page reachable ($r)" grep -q '^200' <<<"$r"
+r="$(panel /register)"; check "panel: no public registration ($r)" grep -q '^404' <<<"$r"
+r="$(panel "/storage/$p2")"; check "panel: photo files need a session ($r)" grep -q '^401' <<<"$r"
+reg="$(curl -sS -o /dev/null -w '%{http_code}' "${CURL_TLS[@]}" --resolve "${LIBERU_HOST}:443:127.0.0.1" -H 'Accept: application/json' -X POST "https://${LIBERU_HOST}/api/v1/auth/register" --data 'name=x&email=x@example.org&password=Passw0rd!x&password_confirmation=Passw0rd!x')"
+check "panel: API registration closed (HTTP $reg)" test "$reg" != 200 -a "$reg" != 201
 code="$(catalog_code /es/buy)"
-check "catalog: public page open (HTTP $code)" test "$code" = 200
+check "catalog: public page open without password (HTTP $code)" test "$code" = 200
+if [ "${CATALOG_INDEXING:-off}" != on ]; then
+  hdr="$(curl -sSI "${CURL_TLS[@]}" --resolve "${PWB_HOST}:443:127.0.0.1" "https://${PWB_HOST}/es/buy" | tr -d '\r')"
+  check "catalog: noindex header" grep -qi '^x-robots-tag: noindex' <<<"$hdr"
+  check "catalog: robots.txt disallows everything" grep -qx 'Disallow: /' <<<"$(catalog /robots.txt)"
+fi
 
 assets_after="$(pwb_sql 'SELECT COUNT(*) FROM pwb_realty_assets')"
 log "assets before=$assets_before after=$assets_after (expected +1)"

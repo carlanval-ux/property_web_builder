@@ -6,8 +6,10 @@
 name: clarto-staging
 
 x-liberu-env: &liberu-env
-  APP_NAME: "CLARTO CRM (staging)"
+  APP_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
   APP_ENV: staging
+  APP_STAFF_ONLY: "true"          # every web URL requires a session (internal tool)
+  IDENTITY_REGISTRATION: closed   # no public self-registration (web or API)
   APP_DEBUG: "false"
   APP_KEY: ${LIBERU_APP_KEY:?}
   APP_URL: https://${LIBERU_HOST:?}
@@ -26,11 +28,22 @@ x-liberu-env: &liberu-env
   DB_PASSWORD: ${LIBERU_DB_PASSWORD:?}
   SESSION_DRIVER: database
   SESSION_SECURE_COOKIE: "true"
-  CACHE_STORE: database
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_DB: "2"
+  REDIS_CACHE_DB: "3"
+  REDIS_PREFIX: panel_
   QUEUE_CONNECTION: database
   BROADCAST_CONNECTION: log
   FILESYSTEM_DISK: public
-  MAIL_MAILER: log
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  MAIL_SCHEME: smtp
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@clarto.es}
+  MAIL_FROM_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
 
 x-pwb-env: &pwb-env
@@ -45,10 +58,19 @@ x-pwb-env: &pwb-env
   RAILS_LOG_TO_STDOUT: "true"
   SKIP_MIGRATIONS: "true" # migrations run once, explicitly, from scripts/deploy.sh
   RUN_SEEDS: "false"
-  REDIS_URL: redis://pwb-redis:6379/0
+  REDIS_URL: redis://redis:6379/0
   LIBERU_API_URL: http://liberu-app
   LIBERU_PUBLIC_URL: https://${LIBERU_HOST:?}
   LIBERU_MEDIA_ROOT: /liberu-storage/public
+  CATALOG_BRAND: ${CATALOG_BRAND:-CLARTO Inmobiliaria}
+  # While the catalog only has fictitious listings every one is labelled with
+  # this text; empty it (scripts/catalog-indexing.sh) once real stock is in.
+  CATALOG_TEST_LABEL: ${CATALOG_TEST_LABEL-Inmueble de prueba}
+  CATALOG_INQUIRY_EMAIL: ${CATALOG_INQUIRY_EMAIL:-buzon-pruebas@clarto.es}
+  SMTP_ADDRESS: mailpit
+  SMTP_PORT: "1025"
+  SMTP_DOMAIN: ${PWB_HOST:?}
+  MAILER_HOST: ${PWB_HOST:?}
 
 services:
   caddy:
@@ -58,14 +80,28 @@ services:
     environment:
       LIBERU_HOST: ${LIBERU_HOST:?}
       PWB_HOST: ${PWB_HOST:?}
-      ACME_EMAIL: ${ACME_EMAIL:-}
       TLS_MODE: ${TLS_MODE:-}
+      CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./secrets/panel_auth.caddy:/etc/caddy/panel_auth.caddy:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [liberu-app, pwb-web]
+    depends_on: [liberu-app, pwb-web, mailpit]
+
+  # Test mailbox: SMTP sink for both apps (nothing leaves the server).
+  # UI at https://<LIBERU_HOST>/buzon/ behind the panel basic auth.
+  mailpit:
+    image: axllent/mailpit:v1.27.10
+    restart: unless-stopped
+    environment:
+      MP_WEBROOT: buzon
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    volumes:
+      - mailpit_data:/data
 
   # ---------------------------------------------------------------- Liberu --
   liberu-app:
@@ -80,6 +116,7 @@ services:
       - liberu_storage:/var/www/html/storage/app
     depends_on:
       liberu-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/up"]
       interval: 15s
@@ -137,7 +174,7 @@ services:
       - pwb_storage:/app/storage
     depends_on:
       pwb-db: { condition: service_healthy }
-      pwb-redis: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
   pwb-worker:
     image: clarto/pwb:${PWB_REF:?}
@@ -148,7 +185,7 @@ services:
       - pwb_storage:/app/storage
     depends_on:
       pwb-db: { condition: service_healthy }
-      pwb-redis: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
   # Liberu -> PWB catalog sync, keyed by property reference (idempotent).
   pwb-sync:
@@ -166,16 +203,17 @@ services:
       - liberu_storage:/liberu-storage:ro
     depends_on:
       pwb-db: { condition: service_healthy }
-      pwb-redis: { condition: service_healthy }
+      redis: { condition: service_healthy }
       liberu-app: { condition: service_healthy }
 
-  # Cache, Logster, rails_performance and ActionCable in PWB all expect Redis.
-  pwb-redis:
+  # Shared Redis: PWB (db 0-1: cache, Logster, rails_performance, ActionCable)
+  # and the panel (db 2-3: cache, so web/worker/scheduler share it).
+  redis:
     image: redis:7.4.5-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
-      - pwb_redis:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -200,8 +238,9 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  mailpit_data:
   liberu_db:
   liberu_storage:
   pwb_db:
-  pwb_redis:
+  redis_data:
   pwb_storage:

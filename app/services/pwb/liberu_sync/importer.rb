@@ -50,11 +50,17 @@ module Pwb
 
       class AlreadyRunning < StandardError; end
 
-      def initialize(website:, client:, photo_fetcher: PhotoFetcher.new, allow_empty: false, logger: Rails.logger)
+      # test_label: while the catalog only holds fictitious properties (staging),
+      # every synced listing is visibly marked with it (title prefix + notice at
+      # the top of the description). Changing or clearing it re-syncs all
+      # listings, because it is part of the payload digest.
+      def initialize(website:, client:, photo_fetcher: PhotoFetcher.new, allow_empty: false, test_label: nil,
+                     logger: Rails.logger)
         @website = website
         @client = client
         @photo_fetcher = photo_fetcher
         @allow_empty = allow_empty
+        @test_label = test_label.presence
         @logger = logger
         @result = Result.new(created: [], updated: [], unchanged: [], withdrawn: [], republished: [],
                              photos_added: 0, photos_removed: 0, errors: [], skipped_withdrawals: false)
@@ -140,7 +146,19 @@ module Pwb
       end
 
       def canonical_payload(item)
-        item.except("gallery", "views_count", "price_usd", "id").sort.to_h
+        item.except("gallery", "views_count", "price_usd", "id").merge("_test_label" => @test_label).sort.to_h
+      end
+
+      def display_title(reference, item)
+        title = item["title"].presence || reference
+        @test_label ? "#{@test_label} · #{title}" : title
+      end
+
+      def display_description(item)
+        return item["description"] unless @test_label
+
+        notice = "#{@test_label}: ficha ficticia creada para pruebas. No es una oferta real."
+        [notice, item["description"].presence].compact.join("\n\n")
       end
 
       def gallery(item)
@@ -160,8 +178,8 @@ module Pwb
         area_sqft = item["area_sqft"].presence&.to_f
         {
           reference: reference,
-          title: item["title"].presence || reference,
-          description: item["description"],
+          title: display_title(reference, item),
+          description: display_description(item),
           street_address: item["address"],
           city: item["city"],
           region: item["region"],
@@ -195,8 +213,8 @@ module Pwb
 
         LOCALES.each do |locale|
           Mobility.with_locale(locale) do
-            listing.title = item["title"].presence || asset.reference
-            listing.description = item["description"]
+            listing.title = display_title(asset.reference, item)
+            listing.description = display_description(item)
           end
         end
         listing.save!

@@ -32,7 +32,8 @@ namespace :pwb do
       allow_empty = ENV["LIBERU_SYNC_ALLOW_EMPTY"] == "true"
 
       result = ClartoStaging.with_website(website) do
-        Pwb::LiberuSync::Importer.new(website: website, client: client, allow_empty: allow_empty).call
+        Pwb::LiberuSync::Importer.new(website: website, client: client, allow_empty: allow_empty,
+                                      test_label: ENV["CATALOG_TEST_LABEL"]).call
       end
 
       summary = result.to_h.merge(at: Time.current.iso8601, website: website.custom_domain)
@@ -78,6 +79,18 @@ namespace :pwb do
         Pwb::User.where(email: seeded_emails).where.not(email: admin_email).find_each do |user|
           user.update!(password: SecureRandom.base58(48), locked_at: Time.current)
         end
+
+        # Public identity of the catalog and where enquiries go. In staging every
+        # outgoing mail is captured by the test mailbox (Mailpit), whatever the
+        # recipient, so nothing reaches a real inbox.
+        brand = ENV.fetch("CATALOG_BRAND", "CLARTO Inmobiliaria")
+        inquiry_email = ENV.fetch("CATALOG_INQUIRY_EMAIL", "buzon-pruebas@clarto.es")
+        agency = website.agency || website.build_agency
+        agency.assign_attributes(display_name: brand, company_name: brand, email_primary: inquiry_email,
+                                 email_for_general_contact_form: inquiry_email,
+                                 email_for_property_contact_form: inquiry_email)
+        agency.save!
+        website.update!(company_display_name: brand) if website.respond_to?(:company_display_name=)
 
         admin = Pwb::User.find_or_initialize_by(email: admin_email)
         admin.assign_attributes(password: admin_password, website: website, admin: true,

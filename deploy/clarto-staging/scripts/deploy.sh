@@ -18,7 +18,7 @@ if [ "$BUILD" = 1 ]; then
 fi
 
 log "starting databases"
-dc up -d liberu-db pwb-db pwb-redis
+dc up -d liberu-db pwb-db redis
 wait_healthy liberu-db 240
 wait_healthy pwb-db 120
 

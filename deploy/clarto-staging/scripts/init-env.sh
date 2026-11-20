@@ -67,9 +67,13 @@ chmod 644 secrets/panel_auth.caddy # read by the caddy container; contains only 
 cat > secrets/credentials.txt <<EOF
 CLARTO staging credentials ($(date -u +%FT%TZ)) — keep private.
 
-Panel basic auth (Liberu entero; paneles de PWB): ${PANEL_USER} / ${PANEL_PASSWORD}
-Liberu (Filament)  https://${LIBERU_HOST}/admin : admin@example.com / ${LIBERU_ADMIN_PASSWORD}
-PWB (site_admin)   https://${PWB_HOST}/site_admin : ${PWB_ADMIN_EMAIL} / ${PWB_ADMIN_PASSWORD}
+Cuenta técnica del panel (automatizaciones/E2E, no para personas):
+  https://${LIBERU_HOST}/admin/login : admin@example.com / ${LIBERU_ADMIN_PASSWORD}
+  Administradores reales: scripts/panel-admin.sh <email> (enlace de un solo uso).
+
+Basic auth de herramientas de operación (${PANEL_USER} / ${PANEL_PASSWORD}):
+  buzón de pruebas  https://${LIBERU_HOST}/buzon/
+  admin del catálogo https://${PWB_HOST}/site_admin (luego: ${PWB_ADMIN_EMAIL} / ${PWB_ADMIN_PASSWORD})
 EOF
 chmod 600 secrets/credentials.txt
 log "panel auth and secrets/credentials.txt ready"

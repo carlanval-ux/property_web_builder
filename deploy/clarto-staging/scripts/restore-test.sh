@@ -34,7 +34,7 @@ check pwb_realty_assets "$pwb_assets" "$(expect pwb_realty_assets)"
 check pwb_blobs "$pwb_blobs" "$(expect pwb_blobs)"
 
 # Boot the apps on the restored data (no ports published: caddy is not started).
-t up -d --no-deps pwb-redis liberu-app pwb-web
+t up -d --no-deps redis liberu-app pwb-web
 COMPOSE_PROJECT="$TEST_PROJECT"
 dc() { t "$@"; }
 wait_healthy liberu-app 300
