@@ -23,8 +23,11 @@ wait_healthy redis 60
 
 log "Liberu: migrations"
 dc run --rm --no-deps -T liberu-app php artisan migrate --force
-if [ "$(dc run --rm --no-deps -T liberu-app php artisan tinker --execute='echo \App\Models\User::count();' | tail -n1 | tr -dc 0-9)" = "0" ]; then
+if [ "$(dc run --rm --no-deps -T liberu-app php artisan tinker --execute='echo \App\Models\User::where("email", "admin@example.com")->count();' | tail -n1 | tr -dc 0-9)" = "0" ]; then
   log "Liberu: first deploy — seeding teams, roles and admin (no demo properties)"
+  # TeamSeeder builds its placeholder owner with a factory (needs dev-only Faker):
+  # create that placeholder directly; UserSeeder hands the team to the admin and removes it.
+  dc run --rm --no-deps -T liberu-app php artisan tinker --execute='$m = config("auth.providers.users.model"); if (! $m::query()->exists()) { $m::forceCreate(["name" => "Owner", "email" => "owner@example.com", "password" => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(64)), "email_verified_at" => now()]); }'
   for seeder in \
     'Liberu\RealEstate\Application\Database\Seeders\TeamSeeder' \
     'Liberu\RealEstate\Core\Database\Seeders\TerritorySeeder' \

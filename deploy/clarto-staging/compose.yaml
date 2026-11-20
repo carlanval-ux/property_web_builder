@@ -36,7 +36,7 @@ x-liberu-env: &liberu-env
   REDIS_DB: "2"
   REDIS_CACHE_DB: "3"
   REDIS_PREFIX: panel_
-  QUEUE_CONNECTION: database
+  QUEUE_CONNECTION: redis
   BROADCAST_CONNECTION: log
   FILESYSTEM_DISK: public
   MAIL_MAILER: smtp

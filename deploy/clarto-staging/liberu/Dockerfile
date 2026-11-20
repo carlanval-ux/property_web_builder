@@ -28,11 +28,13 @@ COPY apache-staging.conf /etc/apache2/conf-enabled/zz-staging.conf
 COPY php-staging.ini "$PHP_INI_DIR/conf.d/zz-staging.ini"
 
 WORKDIR /var/www/html
+COPY patch-migrations.php /tmp/patch-migrations.php
 COPY --from=src --chown=www-data:www-data . .
 RUN rm -rf .git .env \
  && composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
  && php artisan package:discover --ansi \
  && php artisan filament:upgrade --ansi \
+ && php /tmp/patch-migrations.php /var/www/html \
  && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache
 
