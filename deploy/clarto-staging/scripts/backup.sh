@@ -16,22 +16,27 @@ mkdir -p "$dest"
 log "backup -> $dest"
 
 # Databases (online, consistent snapshots)
-dc exec -T liberu-db sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --hex-blob --databases liberu' \
-  | gzip -9 > "$dest/liberu-db.sql.gz"
+# Panel: SQLite, exported online and consistently with VACUUM INTO
+dc exec -T -u www-data liberu-app php -r '
+  $p = new PDO("sqlite:" . getenv("DB_DATABASE"));
+  @unlink("/tmp/panel-backup.sqlite");
+  $p->exec("VACUUM INTO \"/tmp/panel-backup.sqlite\"");'
+dc exec -T liberu-app cat /tmp/panel-backup.sqlite | gzip -9 > "$dest/liberu-db.sqlite.gz"
+dc exec -T liberu-app rm -f /tmp/panel-backup.sqlite
 dc exec -T pwb-db pg_dump -U pwb -d pwb_staging -Fc > "$dest/pwb-db.dump"
 
-# Photo / upload volumes
-for vol in liberu_storage pwb_storage; do
-  docker run --rm -v "${COMPOSE_PROJECT}_${vol}:/data:ro" -v "$dest:/backup" alpine:3.22 \
-    tar -C /data -czf "/backup/${vol}.tar.gz" .
-done
+# Photo / upload volumes (the panel's live database file is excluded: it is in liberu-db.sqlite.gz)
+docker run --rm -v "${COMPOSE_PROJECT}_liberu_storage:/data:ro" -v "$dest:/backup" alpine:3.22 \
+  tar -C /data --exclude ./db -czf /backup/liberu_storage.tar.gz .
+docker run --rm -v "${COMPOSE_PROJECT}_pwb_storage:/data:ro" -v "$dest:/backup" alpine:3.22 \
+  tar -C /data -czf /backup/pwb_storage.tar.gz .
 
 # Secrets needed to make the data usable again (stays on the host, mode 600)
 cp "$BUNDLE_DIR/.env" "$dest/env"
 [ -d "$BUNDLE_DIR/secrets" ] && tar -C "$BUNDLE_DIR" -czf "$dest/secrets.tar.gz" secrets
 
 # Row counts recorded at backup time, used by restore-test.sh to verify
-liberu_props="$(dc exec -T liberu-db sh -c 'mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" liberu -e "SELECT COUNT(*) FROM real_estate_properties"' 2>/dev/null | tr -dc 0-9)"
+liberu_props="$(dc exec -T -u www-data liberu-app php -r '$p = new PDO("sqlite:" . getenv("DB_DATABASE")); echo $p->query("SELECT COUNT(*) FROM real_estate_properties")->fetchColumn();' | tr -dc 0-9)"
 pwb_assets="$(dc exec -T pwb-db psql -U pwb -d pwb_staging -tAc 'SELECT COUNT(*) FROM pwb_realty_assets' | tr -dc 0-9)"
 pwb_photos="$(dc exec -T pwb-db psql -U pwb -d pwb_staging -tAc 'SELECT COUNT(*) FROM active_storage_blobs' | tr -dc 0-9)"
 cat > "$dest/manifest.txt" <<EOF
@@ -45,10 +50,10 @@ EOF
 (cd "$dest" && sha256sum ./* > SHA256SUMS)
 
 # Sanity: every artefact non-empty and the archives readable
-for f in liberu-db.sql.gz pwb-db.dump liberu_storage.tar.gz pwb_storage.tar.gz; do
+for f in liberu-db.sqlite.gz pwb-db.dump liberu_storage.tar.gz pwb_storage.tar.gz; do
   [ -s "$dest/$f" ] || die "backup artefact $f is empty"
 done
-gzip -t "$dest/liberu-db.sql.gz"
+gzip -t "$dest/liberu-db.sqlite.gz"
 docker run --rm -v "$dest:/b:ro" postgres:17.6-alpine pg_restore -l /b/pwb-db.dump > /dev/null
 
 ln -sfn "$dest" "$BACKUP_ROOT/latest"

@@ -10,6 +10,16 @@ mkdir -p storage/app/public storage/framework/sessions storage/framework/views s
 chown -R www-data:www-data storage/app storage/framework storage/logs bootstrap/cache
 
 [ -L public/storage ] || ln -s /var/www/html/storage/app/public public/storage
+
+# SQLite database on the persistent volume (DB_DATABASE). WAL lets the web,
+# worker and scheduler containers read while one of them writes; the mode is
+# stored in the database file, so setting it once is enough.
+if [ "${DB_CONNECTION:-}" = "sqlite" ] && [ -n "${DB_DATABASE:-}" ]; then
+  mkdir -p "$(dirname "$DB_DATABASE")"
+  [ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
+  chown -R www-data:www-data "$(dirname "$DB_DATABASE")"
+  runuser -u www-data -- php -r '$p = new PDO("sqlite:" . getenv("DB_DATABASE")); $p->exec("PRAGMA journal_mode=WAL");'
+fi
 runuser -u www-data -- php artisan optimize --quiet || echo "warning: artisan optimize failed" >&2
 
 if [ "$1" = "php" ]; then

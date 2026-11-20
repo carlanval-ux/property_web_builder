@@ -106,9 +106,11 @@
         <% end %>
         <%= link_to I18n.t("signIn"), "/pwb_login", class: "pwb-footer__link hover:text-pwb-primary-300 transition-colors" %>
       </nav>
+      <% if show_powered_by? %>
       <p class="pwb-footer__powered-by">
         Powered by <a href="https://www.propertywebbuilder.com" class="pwb-footer__link text-pwb-primary-400 hover:text-pwb-primary-300 transition-colors">PropertyWebBuilder</a>
       </p>
+      <% end %>
     </div>
   </div>
 </footer>

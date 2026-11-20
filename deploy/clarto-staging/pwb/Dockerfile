@@ -40,6 +40,23 @@ COPY --from=node_builder /app/app/assets/builds/ ./app/assets/builds/
 # ExecJS needs a JavaScript runtime for assets:precompile (also missing upstream)
 COPY --from=node_builder /usr/local/bin/node /usr/local/bin/node
 COPY . .
+# CLARTO identity for the public catalog (build context "brand" = deploy/clarto-staging/brand):
+# favicons, PWA icons/manifests and logos replace the stock PropertyWebBuilder ones.
+COPY --from=brand favicon.ico ./public/favicon.ico
+COPY --from=brand clarto-favicon.svg ./public/icon.svg
+COPY --from=brand icon-512.png ./public/icon.png
+COPY --from=brand icon-192.png ./public/android-chrome-192x192.png
+COPY --from=brand icon-512.png ./public/android-chrome-512x512.png
+COPY --from=brand icon-180.png ./public/icons/apple-touch-icon.png
+COPY --from=brand icon-180.png ./public/apple-touch-icon.png
+COPY --from=brand icon-16.png ./public/icons/favicon-16x16.png
+COPY --from=brand icon-32.png ./public/icons/favicon-32x32.png
+COPY --from=brand icon-48.png ./public/icons/favicon-48x48.png
+COPY --from=brand icon-192.png ./public/icons/icon-192.png
+COPY --from=brand icon-512.png ./public/icons/icon-512.png
+COPY --from=brand catalogo/manifest.json ./public/manifest.json
+COPY --from=brand catalogo/site.webmanifest ./public/site.webmanifest
+COPY --from=brand clarto-logo-color.png clarto-logo-negativo.png clarto-simbolo.svg clarto-simbolo-negativo.svg ./public/brand/
 RUN SECRET_KEY_BASE=dummy_key_for_precompilation bundle exec rake assets:precompile \
  && mkdir -p tmp/pids tmp/cache tmp/sockets log storage \
  && chown -R rails:rails tmp log storage db

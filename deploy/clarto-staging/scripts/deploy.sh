@@ -17,10 +17,9 @@ if [ "$BUILD" = 1 ]; then
   dc build --pull
 fi
 
-log "starting databases"
-dc up -d liberu-db pwb-db redis
-wait_healthy liberu-db 240
-wait_healthy pwb-db 120
+log "starting shared services"
+dc up -d redis
+wait_healthy redis 60
 
 log "Liberu: migrations"
 dc run --rm --no-deps -T liberu-app php artisan migrate --force
@@ -37,18 +36,22 @@ if [ "$(dc run --rm --no-deps -T liberu-app php artisan tinker --execute='echo \
   done
 fi
 
-log "PWB: migrations and staging bootstrap"
-dc run --rm --no-deps -T pwb-web bundle exec rake db:migrate
-dc run --rm --no-deps -T -e PWB_ADMIN_EMAIL -e PWB_ADMIN_PASSWORD pwb-web bundle exec rake pwb:clarto_staging:bootstrap
+log "panel: CLARTO identity settings"
+"$BUNDLE_DIR/scripts/brand-settings.sh"
+
+if [ "${ENABLE_PWB:-false}" = true ]; then
+  # PropertyWebBuilder is paused (compose profile "pwb"); kept runnable on demand.
+  export COMPOSE_PROFILES=pwb
+  log "PWB: migrations and staging bootstrap"
+  dc up -d pwb-db && wait_healthy pwb-db 120
+  dc run --rm --no-deps -T pwb-web bundle exec rake db:migrate
+  dc run --rm --no-deps -T -e PWB_ADMIN_EMAIL -e PWB_ADMIN_PASSWORD pwb-web bundle exec rake pwb:clarto_staging:bootstrap
+fi
 
 log "starting the full stack"
 dc up -d --remove-orphans
 wait_healthy liberu-app 300
-wait_healthy pwb-web 300
 wait_healthy caddy 60
-
-log "first catalog sync"
-dc exec -T pwb-sync bundle exec rake pwb:liberu:sync || log "sync reported errors (see above)"
 
 mkdir -p "$BUNDLE_DIR/state"
 {
@@ -58,4 +61,4 @@ mkdir -p "$BUNDLE_DIR/state"
   dc images --format '{{.Repository}}:{{.Tag}} {{.ID}}' 2>/dev/null || dc images
 } > "$BUNDLE_DIR/state/last-deploy.txt"
 
-log "done — https://${LIBERU_HOST} (backoffice) and https://${PWB_HOST} (catalog)"
+log "done — https://${LIBERU_HOST} (panel)"

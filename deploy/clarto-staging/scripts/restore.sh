@@ -41,8 +41,7 @@ log "[$COMPOSE_PROJECT] stopping applications"
 dc stop $APPS 2>/dev/null || true
 
 log "[$COMPOSE_PROJECT] starting databases"
-dc up -d liberu-db pwb-db redis
-wait_healthy liberu-db 240
+dc up -d pwb-db redis
 wait_healthy pwb-db 120
 
 log "restoring Liberu database"

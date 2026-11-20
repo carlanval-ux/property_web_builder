@@ -36,6 +36,11 @@ RUN rm -rf .git .env \
  && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache
 
+# CLARTO identity (build context "brand" = deploy/clarto-staging/brand)
+COPY --from=brand --chown=www-data:www-data clarto-favicon.svg public/favicon.svg
+COPY --from=brand --chown=www-data:www-data icon-32.png public/favicon-32.png
+COPY --from=brand --chown=www-data:www-data clarto-logo-color.png clarto-logo-negativo.png clarto-simbolo.svg clarto-simbolo-negativo.svg icon-180.png icon-192.png icon-512.png public/brand/
+
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/liberu-entrypoint
 ENTRYPOINT ["liberu-entrypoint"]
 CMD ["apache2-foreground"]

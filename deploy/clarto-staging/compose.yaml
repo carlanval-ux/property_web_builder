@@ -20,12 +20,13 @@ x-liberu-env: &liberu-env
   PROPERTY_REFERENCE_PREFIX: ${PROPERTY_REFERENCE_PREFIX:-CL}
   LOG_CHANNEL: stderr
   LOG_LEVEL: info
-  DB_CONNECTION: mysql
-  DB_HOST: liberu-db
-  DB_PORT: "3306"
-  DB_DATABASE: liberu
-  DB_USERNAME: liberu
-  DB_PASSWORD: ${LIBERU_DB_PASSWORD:?}
+  # SQLite on the persistent storage volume (outside storage/app/public). This is
+  # the engine upstream installs and tests with; a clean `migrate` on MySQL or
+  # PostgreSQL fails (organizations-teams 2024_09_29_093707_add_team_to_resources
+  # alters tables no migration creates). Journal mode WAL is set by the entrypoint.
+  DB_CONNECTION: sqlite
+  DB_DATABASE: /var/www/html/storage/app/db/panel.sqlite
+  DB_FOREIGN_KEYS: "true"
   SESSION_DRIVER: database
   SESSION_SECURE_COOKIE: "true"
   CACHE_STORE: redis
@@ -67,6 +68,7 @@ x-pwb-env: &pwb-env
   # this text; empty it (scripts/catalog-indexing.sh) once real stock is in.
   CATALOG_TEST_LABEL: ${CATALOG_TEST_LABEL-Inmueble de prueba}
   CATALOG_INQUIRY_EMAIL: ${CATALOG_INQUIRY_EMAIL:-buzon-pruebas@clarto.es}
+  DEFAULT_FROM_EMAIL: "${CATALOG_BRAND:-CLARTO Inmobiliaria} <${MAIL_FROM_ADDRESS:-no-reply@clarto.es}>"
   SMTP_ADDRESS: mailpit
   SMTP_PORT: "1025"
   SMTP_DOMAIN: ${PWB_HOST:?}
@@ -79,7 +81,7 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       LIBERU_HOST: ${LIBERU_HOST:?}
-      PWB_HOST: ${PWB_HOST:?}
+
       TLS_MODE: ${TLS_MODE:-}
       CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
     volumes:
@@ -87,7 +89,7 @@ services:
       - ./secrets/panel_auth.caddy:/etc/caddy/panel_auth.caddy:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [liberu-app, pwb-web, mailpit]
+    depends_on: [liberu-app, mailpit]
 
   # Test mailbox: SMTP sink for both apps (nothing leaves the server).
   # UI at https://<LIBERU_HOST>/buzon/ behind the panel basic auth.
@@ -109,13 +111,13 @@ services:
       context: ./liberu
       additional_contexts:
         src: ./src/liberu
+        brand: ./brand
     image: clarto/liberu:${LIBERU_REF:?}
     restart: unless-stopped
     environment: *liberu-env
     volumes:
       - liberu_storage:/var/www/html/storage/app
     depends_on:
-      liberu-db: { condition: service_healthy }
       redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/up"]
@@ -144,29 +146,14 @@ services:
     depends_on:
       liberu-app: { condition: service_healthy }
 
-  liberu-db:
-    image: mysql:8.4.6
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: liberu
-      MYSQL_USER: liberu
-      MYSQL_PASSWORD: ${LIBERU_DB_PASSWORD:?}
-      MYSQL_ROOT_PASSWORD: ${LIBERU_DB_ROOT_PASSWORD:?}
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
-    volumes:
-      - liberu_db:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-
   # ------------------------------------------------------------------- PWB --
   pwb-web:
+    profiles: ["pwb"]  # PropertyWebBuilder paused: catalog lives in clarto.es/inmuebles
     build:
       context: ../..
       dockerfile: deploy/clarto-staging/pwb/Dockerfile
+      additional_contexts:
+        brand: ./brand
     image: clarto/pwb:${PWB_REF:?}
     restart: unless-stopped
     environment: *pwb-env
@@ -177,6 +164,7 @@ services:
       redis: { condition: service_healthy }
 
   pwb-worker:
+    profiles: ["pwb"]  # PropertyWebBuilder paused: catalog lives in clarto.es/inmuebles
     image: clarto/pwb:${PWB_REF:?}
     restart: unless-stopped
     command: ["bundle", "exec", "bin/jobs"]
@@ -189,6 +177,7 @@ services:
 
   # Liberu -> PWB catalog sync, keyed by property reference (idempotent).
   pwb-sync:
+    profiles: ["pwb"]  # PropertyWebBuilder paused: catalog lives in clarto.es/inmuebles
     image: clarto/pwb:${PWB_REF:?}
     restart: unless-stopped
     command:
@@ -221,6 +210,7 @@ services:
       retries: 10
 
   pwb-db:
+    profiles: ["pwb"]  # PropertyWebBuilder paused: catalog lives in clarto.es/inmuebles
     image: postgres:17.6-alpine
     restart: unless-stopped
     environment:
@@ -239,7 +229,6 @@ volumes:
   caddy_data:
   caddy_config:
   mailpit_data:
-  liberu_db:
   liberu_storage:
   pwb_db:
   redis_data:

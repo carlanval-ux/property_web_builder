@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= content_for?(:title) ? yield(:title) : "Sign In - PropertyWebBuilder" %></title>
+    <title><%= content_for?(:title) ? yield(:title) : "#{t('signIn', default: 'Sign In')} - #{@current_website&.company_display_name.presence || request.host}" %></title>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
@@ -23,7 +23,7 @@
           <img class="mx-auto h-12 w-auto" src="<%= website.main_logo_url %>" alt="Logo" loading="eager" fetchpriority="high">
         <% else %>
           <h2 class="text-center text-3xl font-bold text-gray-900">
-            <%= website&.company_display_name || "PropertyWebBuilder" %>
+            <%= website&.company_display_name.presence || request.host %>
           </h2>
         <% end %>
       </div>

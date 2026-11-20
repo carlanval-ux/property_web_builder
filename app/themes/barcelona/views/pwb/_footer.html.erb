@@ -206,6 +206,7 @@
         </p>
 
         <!-- Powered By -->
+        <% if show_powered_by? %>
         <p class="pwb-footer__powered-by text-sm text-pwb-secondary-500 flex items-center">
           <span class="mr-2"><%= t('pwb.footer.powered_by', default: 'Powered by') %></span>
           <a href="https://www.propertywebbuilder.com"
@@ -214,6 +215,7 @@
             PropertyWebBuilder
           </a>
         </p>
+        <% end %>
       </div>
     </div>
   </div>

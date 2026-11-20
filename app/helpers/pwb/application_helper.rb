@@ -95,6 +95,13 @@ module Pwb
     # NOTE: website.company_display_name is DEPRECATED and only used as a legacy fallback.
     # New installations should set display_name on the Agency model instead.
     # The agency display_name field can be edited in Admin > Agency Profile.
+    # Whether the footer may show the "Powered by" credit. Honours the
+    # website's whitelabel_config (show_powered_by: false hides it), the same
+    # setting Website#whitelabel_for_api already exposes.
+    def show_powered_by?
+      @current_website.nil? || @current_website.whitelabel_for_api["show_powered_by"]
+    end
+
     def company_display_name(default_value = "Real Estate")
       @current_agency&.display_name.presence ||
         @current_agency&.company_name.presence ||

@@ -75,21 +75,7 @@
 }
 
 # ---------------------------------------------------------------------------
-# Catalog (CLARTO Inmobiliaria): public. Admin/editor panels, management APIs
-# and operator dashboards stay behind basic auth.
+# The PropertyWebBuilder catalog host (inmuebles.clarto.es) is paused: the
+# public catalog is served by the CLARTO website at clarto.es/inmuebles, fed by
+# the panel's read-only catalog API (/api/v1/catalogo/*, CORS-limited).
 # ---------------------------------------------------------------------------
-{$PWB_HOST} {
-	import tls-{$TLS_MODE:acme}
-	import security_headers
-	import indexing-{$CATALOG_INDEXING:off}
-	encode zstd gzip
-
-	@panels path /site_admin* /tenant_admin* /api_manage* /api/v1/* /editor* /*/editor* /users/* /*/users/* /import/* /*/import/* /export/* /*/export/* /active_storage_dashboard* /logs* /pghero* /performance* /jobs* /graphiql* /graphql* /lookbook* /api-docs* /e2e/*
-	handle @panels {
-		import /etc/caddy/panel_auth.caddy
-		reverse_proxy pwb-web:3000
-	}
-	handle {
-		reverse_proxy pwb-web:3000
-	}
-}

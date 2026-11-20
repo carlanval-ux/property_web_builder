@@ -120,6 +120,7 @@
           © <%= Time.current.year %> <%= company_display_name %>.
           All rights reserved.
         </p>
+        <% if show_powered_by? %>
         <p class="text-xs">
           Powered by
           <a href="https://www.propertywebbuilder.com"
@@ -129,6 +130,7 @@
             PropertyWebBuilder
           </a>
         </p>
+        <% end %>
       </div>
     </div>
   </div>

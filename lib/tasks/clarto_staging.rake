@@ -92,6 +92,25 @@ namespace :pwb do
         agency.save!
         website.update!(company_display_name: brand) if website.respond_to?(:company_display_name=)
 
+        # CLARTO visual identity (colours/fonts from the brand guide, logo served
+        # from /brand by the image) and no third-party product credit or links.
+        style = (website.style_variables_for_theme || {}).deep_dup
+        style["default"] = (style["default"] || Pwb::WebsiteStyleable::DEFAULT_STYLE_VARIABLES.dup).merge(
+          "primary_color" => "#173D38",   # verde petróleo
+          "secondary_color" => "#BD7968", # terracota
+          "action_color" => "#9E5847",    # terracota texto (contraste AA sobre blanco)
+          "font_primary" => "DM Sans",
+          "font_secondary" => "Manrope",
+          "border_radius" => "0.75rem"
+        )
+        website.update!(style_variables_for_theme: style, selected_palette: nil,
+                        main_logo_url: "/brand/clarto-logo-color.png",
+                        whitelabel_config: (website.whitelabel_config || {}).merge("show_powered_by" => false),
+                        social_media: {})
+        website.links.where(slug: Pwb::WebsiteSocialLinkable::SOCIAL_MEDIA_PLATFORMS.map { |p| "social_media_#{p}" })
+               .find_each { |link| link.update_columns(link_url: nil, visible: false) }
+        website.links.where("link_url ILIKE ?", "%propertywebbuilder%").find_each { |link| link.update!(visible: false) }
+
         admin = Pwb::User.find_or_initialize_by(email: admin_email)
         admin.assign_attributes(password: admin_password, website: website, admin: true,
                                 confirmed_at: admin.confirmed_at || Time.current, locked_at: nil, failed_attempts: 0)

@@ -79,6 +79,13 @@
       "fallback": "system-ui, -apple-system, sans-serif",
       "google_family": "DM+Sans:wght@400;500;700"
     },
+    "Manrope": {
+      "provider": "google",
+      "category": "sans-serif",
+      "weights": [500, 600, 700, 800],
+      "fallback": "system-ui, -apple-system, sans-serif",
+      "google_family": "Manrope:wght@500;600;700;800"
+    },
     "Playfair Display": {
       "provider": "google",
       "category": "serif",
