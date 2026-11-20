@@ -1,133 +1,92 @@
-# CLARTO Inmobiliaria — staging
+# CLARTO — staging (VPS OVH)
 
-Entorno de staging con **Liberu Real Estate** como backoffice y fuente principal
-de inmuebles y **PropertyWebBuilder (PWB)** como catálogo público. Todo va en
-Docker Compose sobre un único VPS, con HTTPS automático y despliegue
-reproducible desde esta rama (`staging/clarto` del fork de PWB).
+Panel interno **CLARTO Gestión Inmobiliaria** (Liberu, con la identidad de CLARTO) y **vista previa** de la web
+con el catálogo `clarto.es/inmuebles`. Docker Compose sobre un único VPS, HTTPS automático (Let's Encrypt
+con renovación) y despliegue reproducible desde esta rama (`staging/clarto` del fork de PWB).
+
+| URL | Qué es | Acceso |
+|---|---|---|
+| https://panel.clarto.es | Panel del equipo (Filament) | inicio de sesión en **cualquier** URL; sin registro público |
+| https://panel.clarto.es/buzon/ | Buzón de pruebas (Mailpit): todo el correo saliente de staging | basic auth de operación |
+| https://panel.clarto.es/api/v1/catalogo/* | API de catálogo de solo lectura | clave de servidor `X-Catalogo-Clave` |
+| https://inmuebles-previa.clarto.es | Vista previa de la web (rama `feat/catalogo-inmuebles`) | abierta, `noindex` + `robots.txt` Disallow |
+| ~~inmuebles.clarto.es~~ | PropertyWebBuilder | **en pausa** (perfil `pwb`, `ENABLE_PWB=true`) |
 
 ```
-                 Internet (80/443)
-                        │
-                     Caddy  ── TLS Let's Encrypt, cabeceras noindex, basic auth en paneles
-             ┌──────────┴───────────┐
-   crm.<host>  (todo con basic auth   catalogo.<host>  (público; paneles con basic auth)
-   salvo /api/* y /up)
-             │                        │
-        liberu-app (Apache+PHP 8.5)  pwb-web (Puma, Rails 8.1)
-        liberu-worker / scheduler    pwb-worker (Solid Queue)
-             │                        │
-        liberu-db (MySQL 8.4)        pwb-db (PostgreSQL 17)
-        vol. liberu_storage ──ro──▶  pwb-sync ── cada 5 min: rake pwb:liberu:sync
-                                     vol. pwb_storage (fotos del catálogo)
+Equipo ─► panel.clarto.es ─(API catálogo, clave)─► servidor de la web ─► /inmuebles · /inmuebles/{ficha}
+             Liberu + SQLite (volumen)                 (Lovable en producción; web-preview aquí)
 ```
 
-## Versiones fijadas
+## Servicios
 
-| Pieza | Versión |
-|---|---|
-| Liberu | fork `carlanval-ux/realstate` @ `1d0045b8` (`versions.env`) |
-| PWB | fork `carlanval-ux/property_web_builder`, rama `staging/clarto` (commit desplegado en `state/last-deploy.txt`) |
-| PHP / Apache (Liberu) | `php:8.5-apache-trixie`, Composer 2.8 |
-| Ruby / Node (PWB) | `ruby:3.4.7-slim-bookworm`, `node:22.18-bookworm-slim` |
-| Bases de datos | `mysql:8.4.6`, `postgres:17.6-alpine` |
-| Proxy | `caddy:2.10.2-alpine` |
+`caddy` (TLS y proxy) · `liberu-app` (Apache + PHP 8.5), `liberu-worker` (cola Redis), `liberu-scheduler` ·
+`redis` · `mailpit` · `web-preview` (TanStack Start en Node; solo si se ha subido la web).
 
-Ambas aplicaciones se construyen con Dockerfiles propios de staging
-(`liberu/Dockerfile`, `pwb/Dockerfile`), porque las imágenes oficiales no
-arrancan tal cual: la de Liberu usa Octane/RoadRunner sin el binario `rr` y la
-de PWB falla en `bootsnap precompile` (la gema no está en el Gemfile).
+Versiones fijadas: Liberu por SHA en `versions.env` (rama `staging/clarto` del fork `carlanval-ux/realstate`),
+imágenes por etiqueta (`caddy:2.10.2`, `redis:7.4.5`, `axllent/mailpit:v1.27.10`, `php:8.5-apache-trixie`,
+`node:22.18`, `oven/bun:1.4.2`), web por SHA de la rama (`src/web/.source-ref`).
 
 ## Despliegue
 
-Primera vez, en un Ubuntu limpio (usuario con sudo):
-
 ```bash
-sudo mkdir -p /srv/clarto-staging && sudo chown "$USER" /srv/clarto-staging
+# Primera vez (Ubuntu limpio, usuario con sudo; Ploi ya instala Docker en «Docker Server»)
 git clone -b staging/clarto https://github.com/carlanval-ux/property_web_builder.git /srv/clarto-staging/pwb
 cd /srv/clarto-staging/pwb/deploy/clarto-staging
-sudo scripts/install-host.sh "$USER"      # Docker (si falta), ufw 22/80/443, logs, timer de backup
-newgrp docker
-scripts/init-env.sh                        # genera .env y secrets/ (nunca se versionan)
-scripts/deploy.sh                          # build + migraciones + bootstrap + arranque + 1.ª sincronización
+sudo scripts/install-host.sh "$USER"     # ufw 22/80/443, logs de Docker, actualizaciones
+scripts/init-env.sh --liberu-host panel.clarto.es --pwb-host inmuebles.clarto.es   # .env y secrets/ (no se versionan)
+scripts/deploy.sh                        # build + migraciones + semillas + identidad + arranque
+
+# Actualizar
+git pull && scripts/deploy.sh
+
+# Web para la vista previa (desde un equipo con acceso al repositorio privado de la web)
+scripts/upload-web.sh ../web feat/catalogo-inmuebles clarto-staging
+ssh clarto-staging 'cd /srv/clarto-staging/pwb/deploy/clarto-staging && scripts/compose.sh build web-preview && scripts/compose.sh up -d web-preview'
+
+# Operación
+scripts/compose.sh ps | logs -f liberu-app | exec liberu-app php artisan about
 ```
 
-Actualizaciones: `git pull && scripts/deploy.sh`. Para cambiar la versión de
-Liberu se edita `LIBERU_REF` en `versions.env`.
+Credenciales generadas: `secrets/credentials.txt` (modo 600, solo en el servidor). La clave del catálogo está en
+`.env` (`CATALOGO_API_KEY`); en producción se configura como secreto de servidor en Lovable.
 
-`init-env.sh` usa por defecto nombres `crm.<ip>.sslip.io` y
-`catalogo.<ip>.sslip.io`. Para dominios propios:
-`scripts/init-env.sh --liberu-host crm.staging.clarto.es --pwb-host staging.clarto.es`
-(o se editan `LIBERU_HOST`/`PWB_HOST` en `.env`) y después `scripts/deploy.sh`.
+## Primer administrador del panel
 
-Credenciales generadas: `secrets/credentials.txt` (modo 600, solo en el servidor).
-
-## Acceso restringido
-
-* **Liberu**: todo el host pide *basic auth* (además del login de Filament),
-  incluidas las fotos de `/storage`. Quedan abiertos solo `/api/*`
-  (Sanctum; el listado público ya solo devuelve inmuebles publicados) y `/up`.
-* **PWB**: el catálogo es público; `site_admin`, `tenant_admin`, editor,
-  login, `api_manage`, `/api/v1`, importación/exportación, dashboards
-  (`/jobs`, `/logs`, `/pghero`, …) y `/graphql` piden *basic auth*.
-* Ambos hosts envían `X-Robots-Tag: noindex, nofollow`.
-* Los usuarios semilla de PWB (contraseña pública `pwb123456`) quedan
-  bloqueados y con contraseña aleatoria; el admin de CLARTO sale de `.env`.
-
-## Sincronización Liberu → PWB
-
-`rake pwb:liberu:sync` (servicio `pwb-sync`, cada `LIBERU_SYNC_INTERVAL` s).
-
-* **Origen**: `GET /api/v1/public/properties` de Liberu, paginado. Solo
-  devuelve estados `available` y `published`, así que **los borradores nunca
-  salen** de Liberu.
-* **Clave**: la referencia de Liberu (`CL-2026-00001`). La tabla
-  `pwb_external_sync_records` tiene un índice único
-  `(website, source, referencia)` y el inmueble se crea en la misma
-  transacción que su registro, así que **un reintento no puede duplicar**. Si ya
-  existe un inmueble de PWB con esa referencia, se adopta.
-* **Idempotente**: compara *hashes* de datos y de fotos y, si no cambian, no
-  escribe ni descarga nada. Un *advisory lock* impide dos ejecuciones a la vez.
-* **Fotos**: se copian al almacenamiento de PWB (no se enlazan al backoffice),
-  leyéndolas del volumen de Liberu montado en solo lectura. Solo se reordenan o
-  borran las fotos que creó el sincronizador; las subidas a mano en PWB se
-  respetan.
-* **Retirada**: una referencia publicada que deja de aparecer en Liberu se
-  oculta en PWB (anuncio `visible = false`); el inmueble y su historial se
-  conservan. Si Liberu falla o devuelve la lista vacía, **no se retira nada**,
-  salvo que se fuerce con `LIBERU_SYNC_ALLOW_EMPTY=true`.
-* Mapeos: `deal_type` sale→venta y rent/daily→alquiler; superficie en ft²→m²;
-  `property_type`→`types.*` de PWB; título y descripción en `es` y `en`.
-
-Ejecución manual: `docker compose -p clarto-staging exec pwb-sync bundle exec rake pwb:liberu:sync`
-
-## Copias de seguridad y restauración
-
-* `scripts/backup.sh` → `/srv/clarto-staging/backups/<UTC>/`: volcado
-  consistente de MySQL (`--single-transaction`), `pg_dump -Fc`, los volúmenes
-  de fotos de ambas apps, `.env` y `secrets/` (sin ellos los datos no se pueden
-  descifrar: `APP_KEY`, `SECRET_KEY_BASE`), un `manifest.txt` con recuentos y
-  `SHA256SUMS`. Lo lanza el timer de systemd `clarto-backup.timer` cada día a las
-  03:30, con retención de 14 días (`BACKUP_RETENTION_DAYS`).
-* `scripts/restore-test.sh [dir]` restaura la copia en un proyecto Compose
-  aparte, arranca ambas apps sobre esos datos, compara los recuentos con el
-  manifiesto, verifica la integridad (MD5) de cada foto de PWB y lo borra todo.
-  **No toca el entorno vivo.**
-* `scripts/restore.sh <dir> --yes [--with-env]` restaura sobre el entorno vivo
-  (para las apps, sustituye las bases de datos y los volúmenes y vuelve a
-  arrancar).
+No se reparte ninguna contraseña: el script crea (o reactiva) la cuenta con rol `super_admin` y muestra un
+**enlace de un solo uso (60 min)** para que la persona elija su contraseña.
 
 ```bash
-scripts/backup.sh
-scripts/restore-test.sh                                   # usa backups/latest
-scripts/restore.sh /srv/clarto-staging/backups/<UTC> --yes --with-env
+ssh clarto-staging
+cd /srv/clarto-staging/pwb/deploy/clarto-staging
+scripts/panel-admin.sh persona@clarto.es "Nombre Apellido"
+# → abrir el LINK, elegir contraseña y entrar en https://panel.clarto.es/admin/login
 ```
+
+«¿Olvidó su contraseña?» funciona, pero en staging el correo llega al buzón de pruebas (`/buzon/`).
+
+## Decisiones y parches de staging (revisar con upstream)
+
+* **Imágenes propias.** La de Liberu usa Octane/RoadRunner sin el binario `rr`; la de PWB falla en `bootsnap`.
+* **SQLite** para el panel (WAL, en el volumen persistente).
+* **Migraciones defectuosas en los módulos publicados** (Packagist): 6 migraciones alteran tablas que no existen
+  o usan clases que el host no tiene. `liberu/patch-migrations.php` las envuelve y registra un aviso; el build
+  falla si cambian. Hay que reportarlo a liberusoftware.
+* **Modo interno** (`APP_STAFF_ONLY`): todas las URL exigen sesión, incluidas las públicas de los módulos
+  registradas fuera del grupo `web`. Las fotos (`/storage`) se comprueban con `forward_auth`.
+  Registro cerrado con `IDENTITY_REGISTRATION=closed`.
+* **Identidad CLARTO**: logo, colores, tipografías, favicons y textos, sin marcas de terceros visibles (las
+  licencias MIT se conservan en el código).
+* **Superficie en m²**: el campo `area_sqft` se etiqueta «Superficie construida (m²)».
 
 ## Pruebas
 
-* `scripts/e2e-flow.sh`: flujo completo con un inmueble ficticio a través de
-  las interfaces reales (API REST de Liberu, sincronizador y catálogo por HTTPS
-  vía Caddy). Deja el log en `state/e2e-*.log`.
-* `.github/workflows/clarto-staging.yml`: ensaya en un runner limpio de
-  Ubuntu 24.04 el despliegue completo, el E2E, el backup, la prueba de
-  restauración aislada y una restauración en vivo, además de los specs del
-  conector (`spec/services/pwb/liberu_sync`).
+* `scripts/e2e-catalogo.sh`: flujo completo con un inmueble ficticio. Último resultado: **37/37**. Cubre borrador
+  fuera; publicar; precio; fotos (WebP firmadas); reservar; retirar (404 también por enlace directo y fotos sin
+  servir); sin datos internos; sin duplicados; `noindex`.
+* `scripts/demo-catalogo.sh [--retirar]`: dos anuncios ficticios para revisar la vista previa.
+
+## Copias de seguridad
+
+Política acordada: **backup automático del VPS de OVH** (diario, 18:40 UTC; la opción estándar guarda la última
+copia). El temporizador propio (`clarto-backup.timer`) está desactivado; `backup.sh`, `restore.sh` y
+`restore-test.sh` siguen disponibles si se quieren copias lógicas.
