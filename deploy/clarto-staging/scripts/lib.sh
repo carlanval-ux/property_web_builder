@@ -12,6 +12,13 @@ export LIBERU_REF
 PWB_REF="$(git -C "$REPO_DIR" rev-parse HEAD)"
 export PWB_REF
 
+# Website preview: enabled once a website snapshot was uploaded (scripts/upload-web.sh).
+if [ -f "$BUNDLE_DIR/src/web/.source-ref" ]; then
+  WEB_REF="$(cat "$BUNDLE_DIR/src/web/.source-ref")"
+  export WEB_REF
+  export COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}preview"
+fi
+
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-clarto-staging}"
 BACKUP_ROOT="${BACKUP_ROOT:-/srv/clarto-staging/backups}"
 

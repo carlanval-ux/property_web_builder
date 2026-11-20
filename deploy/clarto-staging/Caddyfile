@@ -75,6 +75,17 @@
 }
 
 # ---------------------------------------------------------------------------
+# Website preview (branch under review): open without password, never indexed.
+# ---------------------------------------------------------------------------
+{$PREVIEW_HOST} {
+	import tls-{$TLS_MODE:acme}
+	import security_headers
+	import indexing-off
+	encode zstd gzip
+	reverse_proxy web-preview:3000
+}
+
+# ---------------------------------------------------------------------------
 # The PropertyWebBuilder catalog host (inmuebles.clarto.es) is paused: the
 # public catalog is served by the CLARTO website at clarto.es/inmuebles, fed by
 # the panel's read-only catalog API (/api/v1/catalogo/*, CORS-limited).

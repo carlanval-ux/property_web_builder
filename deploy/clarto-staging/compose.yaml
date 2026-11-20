@@ -89,6 +89,7 @@ services:
 
       TLS_MODE: ${TLS_MODE:-acme}
       CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
+      PREVIEW_HOST: ${PREVIEW_HOST:-inmuebles-previa.clarto.es}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./secrets/panel_auth.caddy:/etc/caddy/panel_auth.caddy:ro
@@ -150,6 +151,26 @@ services:
       - liberu_storage:/var/www/html/storage/app
     depends_on:
       liberu-app: { condition: service_healthy }
+
+  # ------------------------------------------------------ website preview --
+  # CLARTO website branch under review (clarto.es/inmuebles), no password,
+  # noindex. Built only when the source was uploaded (scripts/upload-web.sh).
+  web-preview:
+    profiles: ["preview"]
+    build:
+      context: ./web
+      additional_contexts:
+        src: ./src/web
+    image: clarto/web-preview:${WEB_REF:-none}
+    restart: unless-stopped
+    env_file:
+      - path: ./src/web/.env   # public Supabase values the site already ships (blog)
+        required: false
+    environment:
+      # Read-only catalog API of the panel, called from the site's server only.
+      CATALOGO_API_URL: https://${LIBERU_HOST:?}/api/v1/catalogo
+      CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
+      CATALOGO_INDEXABLE: "false"
 
   # ------------------------------------------------------------------- PWB --
   pwb-web:
