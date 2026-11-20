@@ -9,7 +9,7 @@ ARG PHP_IMAGE=php:8.5-apache-trixie
 
 FROM composer:2.8 AS composer
 
-FROM ${PHP_IMAGE}
+FROM ${PHP_IMAGE} AS app
 COPY --from=mlocati/php-extension-installer:2 /usr/bin/install-php-extensions /usr/local/bin/
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl unzip git \
@@ -38,6 +38,16 @@ RUN rm -rf .git .env \
  && for d in modules/*/ themes/*/; do mkdir -p "${d}resources/views"; done \
  && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache
+
+# Front-end bundles (Filament theme, theme assets): Vite needs the installed
+# vendor/ tree (the Filament theme CSS imports from it), so build from the app stage.
+FROM node:22.18-bookworm-slim AS assets
+WORKDIR /src
+COPY --from=app /var/www/html /src
+RUN npm ci --no-audit --no-fund && npm run build
+
+FROM app
+COPY --from=assets --chown=www-data:www-data /src/public/build public/build
 
 # CLARTO identity (build context "brand" = deploy/clarto-staging/brand)
 COPY --from=brand --chown=www-data:www-data clarto-favicon.svg public/favicon.svg
