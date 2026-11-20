@@ -41,10 +41,13 @@ x-liberu-env: &liberu-env
   QUEUE_CONNECTION: redis
   BROADCAST_CONNECTION: log
   FILESYSTEM_DISK: public
+  # Test mailbox (Mailpit) unless scripts/set-smtp.sh configured a real mailbox in .env
   MAIL_MAILER: smtp
-  MAIL_HOST: mailpit
-  MAIL_PORT: "1025"
-  MAIL_SCHEME: smtp
+  MAIL_HOST: ${MAIL_HOST:-mailpit}
+  MAIL_PORT: "${MAIL_PORT:-1025}"
+  MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@clarto.es}
   MAIL_FROM_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}

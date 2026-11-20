@@ -91,9 +91,9 @@ foreach ($demos as $d) {
       $doc->forceFill(["team_id" => $team->id, "property_id" => $p->id, "kind" => "photo", "path" => $path, "title" => $caption, "sort_order" => $n++, "created_by" => $admin->id])->save();
     }
   }
-  if (IlluminateSupportFacadesSchema::hasTable("clarto_property_texts")) {
+  if (\Illuminate\Support\Facades\Schema::hasTable("clarto_property_texts")) {
     foreach (["es", "en", "tr"] as $loc) {
-      if (! empty($d[$loc])) { AppModelsPropertyText::updateOrCreate(["property_id" => $p->id, "locale" => $loc], $d[$loc] + ["source" => "manual"]); }
+      if (! empty($d[$loc])) { \App\Models\PropertyText::updateOrCreate(["property_id" => $p->id, "locale" => $loc], $d[$loc] + ["source" => "manual"]); }
     }
   }
   $out[] = $p->reference()." ".$p->status->value;
