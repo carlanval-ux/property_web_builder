@@ -42,6 +42,16 @@ x-liberu-env: &liberu-env
   BROADCAST_CONNECTION: log
   FILESYSTEM_DISK: public
   # Test mailbox (Mailpit) unless scripts/set-smtp.sh configured a real mailbox in .env
+  # Continuar con Google (cliente OAuth propio de CLARTO). Vacío = botón oculto y rutas OAuth cerradas.
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  GOOGLE_REDIRECT_URI: https://${LIBERU_HOST:?}/oauth/google/callback
+  # pisos.com (envíos reales desactivados por defecto)
+  PISOS_ENABLED: ${PISOS_ENABLED:-false}
+  PISOS_DRIVER: ${PISOS_DRIVER:-simulado}
+  PISOS_API_KEY: ${PISOS_API_KEY:-}
+  PISOS_USER_ID: ${PISOS_USER_ID:-}
+  PISOS_CONTACTO_TELEFONO: ${PISOS_CONTACTO_TELEFONO:-}
   MAIL_MAILER: smtp
   MAIL_HOST: ${MAIL_HOST:-mailpit}
   MAIL_PORT: "${MAIL_PORT:-1025}"
