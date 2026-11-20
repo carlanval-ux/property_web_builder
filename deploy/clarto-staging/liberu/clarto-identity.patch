@@ -1,5 +1,5 @@
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..89fbbd6d 100644
+index 65c24053..80f2d8c8 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -34,7 +34,15 @@ index 65c24053..89fbbd6d 100644
              ->renderHook(
                  PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                  fn (): string => Blade::render(
-@@ -88,7 +96,6 @@ public function panel(Panel $panel): Panel
+@@ -64,6 +72,7 @@ public function panel(Panel $panel): Panel
+             ->discoverPages(in: __DIR__.'/../../Filament/Pages', for: 'Liberu\RealEstate\Application\Filament\Pages')
+             ->pages([
+                 Dashboard::class,
++                \App\Filament\Pages\AiSettings::class,
+             ])
+             // Labels are deferred (Closures), not eager __() calls: this array is
+             // built once at panel registration, before SetLocale middleware has
+@@ -88,7 +97,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -78,8 +86,20 @@ index b3863db1..02f8aa9e 100644
              ])
              ->middleware([
                  EncryptCookies::class,
+diff --git a/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php b/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
+index 6febd55f..0170479e 100644
+--- a/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
++++ b/modules/real-estate-application/src/Providers/Filament/NavigationGroups.php
+@@ -68,6 +68,7 @@ private static function groupsFor(string $panel): array
+             __('filament.nav_groups.marketing_portals') => [
+                 10 => 'Liberu\\RealEstate\\MarketingFilament\\Resources\\MarketingCampaignResource',
+                 20 => 'Liberu\\RealEstate\\MarketingFilament\\Resources\\NewsArticleResource',
++                30 => 'Liberu\\RealEstate\\PortalsReportingFilament\\Resources\\PortalReportResource',
+                 40 => 'Liberu\\RealEstate\\RightmoveFilament\\Resources\\RightmoveSyncResource',
+                 50 => 'Liberu\\RealEstate\\ZooplaFilament\\Resources\\ZooplaSyncResource',
+                 60 => 'Liberu\\RealEstate\\OnTheMarketFilament\\Resources\\OnTheMarketSyncResource',
 diff --git a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
-index d619b396..dbb8e2e3 100644
+index d619b396..47f175a9 100644
 --- a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 +++ b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 @@ -74,8 +74,7 @@ public static function form(Schema $schema): Schema
@@ -92,6 +112,15 @@ index d619b396..dbb8e2e3 100644
                              Select::make('deal_type')
                                  ->label(__('filament.property.fields.deal_type'))
                                  ->options([
+@@ -87,7 +86,7 @@ public static function form(Schema $schema): Schema
+                                 ->required(),
+                             Select::make('property_type')
+                                 ->label(__('filament.property.fields.property_type'))
+-                                ->options(Property::TYPES)
++                                ->options(fn (): array => collect(Property::TYPES)->mapWithKeys(fn (string $label, string $key): array => [$key => \App\Support\StatusLabel::propertyType($key, $label)])->all())
+                                 ->required(),
+                             Select::make('property_category_id')
+                                 ->label(__('filament.property.fields.property_category_id'))
 @@ -119,6 +118,8 @@ public static function form(Schema $schema): Schema
                                  ->nullable(),
                          ]),
