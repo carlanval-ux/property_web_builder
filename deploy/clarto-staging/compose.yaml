@@ -87,7 +87,7 @@ services:
     environment:
       LIBERU_HOST: ${LIBERU_HOST:?}
 
-      TLS_MODE: ${TLS_MODE:-}
+      TLS_MODE: ${TLS_MODE:-acme}
       CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
