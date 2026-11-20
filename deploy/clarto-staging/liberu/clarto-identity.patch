@@ -1,5 +1,5 @@
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..70599151 100644
+index 65c24053..a5d610c2 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -11,7 +11,7 @@ index 65c24053..70599151 100644
  use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
  use Illuminate\Cookie\Middleware\EncryptCookies;
  use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
-@@ -43,16 +43,16 @@ public function panel(Panel $panel): Panel
+@@ -43,10 +43,17 @@ public function panel(Panel $panel): Panel
              ->path('admin')
              ->login()
              ->viteTheme('resources/css/filament/theme.css')
@@ -25,18 +25,14 @@ index 65c24053..70599151 100644
 +            ->brandLogoHeight('2.25rem')
 +            ->font('DM Sans')
 +            ->colors([...app(ThemeColors::class)->forSite(), 'primary' => Color::hex('#173D38')])
-             ->renderHook(
--                PanelsRenderHook::GLOBAL_SEARCH_AFTER,
--                fn (): string => Blade::render(
--                    '@livewire(\'language-switcher\', [\'locales\' => $locales])',
--                    ['locales' => config('app.supported_locales')],
--                ),
++            ->renderHook(
 +                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
 +                fn (): string => Blade::render('<p style="margin-top:-.5rem;text-align:center;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;color:#9E5847">{{ $product }}</p>', ['product' => 'Gestión Inmobiliaria']),
-             )
++            )
              ->renderHook(
-                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
-@@ -88,7 +88,6 @@ public function panel(Panel $panel): Panel
+                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                 fn (): string => Blade::render(
+@@ -88,7 +95,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -45,7 +41,7 @@ index 65c24053..70599151 100644
              ->tenant(Team::class, ownershipRelationship: 'team')
              ->tenantMiddleware([
 diff --git a/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
-index b3863db1..a23737d4 100644
+index b3863db1..02f8aa9e 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AppPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -57,23 +53,22 @@ index b3863db1..a23737d4 100644
  use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
  use Illuminate\Cookie\Middleware\EncryptCookies;
  use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
-@@ -36,9 +36,13 @@ public function panel(Panel $panel): Panel
+@@ -36,8 +36,13 @@ public function panel(Panel $panel): Panel
              ->id('app')
              ->path('app')
              ->viteTheme('resources/css/filament/theme.css')
 +            ->brandName(config('app.name'))
              ->favicon(asset('favicon.svg'))
 -            ->colors(app(ThemeColors::class)->forSite())
--            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn (): string => Blade::render('@livewire(\'language-switcher\')'))
 +            ->brandLogo(asset('brand/clarto-logo-color.png'))
 +            ->darkModeBrandLogo(asset('brand/clarto-logo-negativo.png'))
 +            ->brandLogoHeight('2.25rem')
 +            ->font('DM Sans')
 +            ->colors([...app(ThemeColors::class)->forSite(), 'primary' => Color::hex('#173D38')])
+             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn (): string => Blade::render('@livewire(\'language-switcher\')'))
              ->sidebarCollapsibleOnDesktop()
              ->discoverResources(in: __DIR__.'/../../Filament/App/Resources', for: 'Liberu\RealEstate\Application\Filament\App\Resources')
-             ->discoverPages(in: __DIR__.'/../../Filament/App/Pages', for: 'Liberu\RealEstate\Application\Filament\App\Pages')
-@@ -94,7 +98,6 @@ public function panel(Panel $panel): Panel
+@@ -94,7 +99,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/App/Widgets', for: 'Liberu\RealEstate\Application\Filament\App\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -82,9 +77,36 @@ index b3863db1..a23737d4 100644
              ->middleware([
                  EncryptCookies::class,
 diff --git a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
-index d619b396..dc401f3d 100644
+index d619b396..c7d3e756 100644
 --- a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 +++ b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
+@@ -74,8 +74,7 @@ public static function form(Schema $schema): Schema
+                         ->description(__('filament.property.sections.basic_description'))
+                         ->columns(2)
+                         ->schema([
+-                            TextInput::make('title')->label(__('filament.property.fields.title'))->maxLength(255)->columnSpanFull(),
+-                            Select::make('status')->label(__('filament.property.fields.status'))->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all())->disabled()->dehydrated(false),
++                            Select::make('status')->label(__('filament.property.fields.status'))->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => AppSupportStatusLabel::property($status)])->all())->disabled()->dehydrated(false),
+                             Select::make('deal_type')
+                                 ->label(__('filament.property.fields.deal_type'))
+                                 ->options([
+@@ -119,6 +118,8 @@ public static function form(Schema $schema): Schema
+                                 ->nullable(),
+                         ]),
+                 ]),
++                // CLARTO: title, descriptions and SEO in es/en/tr (App\Filament\PropertyPublicTexts).
++                \App\Filament\PropertyPublicTexts::tab(),
+                 Tab::make(__('filament.property.sections.location'))->schema([
+                     Section::make(__('filament.property.sections.location'))
+                         ->description(__('filament.property.sections.location_description'))
+@@ -139,7 +140,6 @@ public static function form(Schema $schema): Schema
+                     Section::make(__('filament.property.sections.description'))
+                         ->columns(1)
+                         ->schema([
+-                            Textarea::make('description')->label(__('filament.property.fields.description'))->columnSpanFull(),
+                             Textarea::make('internal_notes')->label(__('filament.property.fields.internal_notes'))->columnSpanFull(),
+                         ]),
+                 ]),
 @@ -153,7 +153,7 @@ public static function form(Schema $schema): Schema
                              TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                              TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
@@ -94,7 +116,14 @@ index d619b396..dc401f3d 100644
                              TextInput::make('year_built')
                                  ->label(__('filament.property.fields.year_built'))
                                  ->numeric()
-@@ -277,7 +277,7 @@ public static function table(Table $table): Table
+@@ -271,13 +271,11 @@ public static function table(Table $table): Table
+                 TextColumn::make('agent.name')->label(__('filament.property.fields.agent_id'))->sortable(),
+                 TextColumn::make('property_type')->label(__('filament.property.fields.property_type'))->searchable()->sortable(),
+                 TextColumn::make('deal_type')->label(__('filament.property.fields.deal_type'))->badge()->formatStateUsing(fn (\Liberu\RealEstate\Properties\Domain\DealType|string|null $state): string => $state !== null ? __('filament.property.deal_types.'.($state instanceof DealType ? $state->value : $state)) : '—'),
+-                TextColumn::make('status')->label(__('filament.property.fields.status'))->badge()->formatStateUsing(fn (PropertyStatus $state): string => Lang::has('filament.property.statuses.'.$state->value)
+-                    ? __('filament.property.statuses.'.$state->value)
+-                    : str($state->value)->headline()->toString()),
++                TextColumn::make('status')->label(__('filament.property.fields.status'))->badge()->formatStateUsing(fn (PropertyStatus $state): string => AppSupportStatusLabel::property($state)),
                  TextColumn::make('price')->label(__('filament.property.fields.price'))->numeric()->sortable(),
                  TextColumn::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->sortable(),
                  TextColumn::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->sortable(),
@@ -103,7 +132,16 @@ index d619b396..dc401f3d 100644
                  TextColumn::make('year_built')->label(__('filament.property.fields.year_built'))->sortable(),
                  TextColumn::make('price_per_square_foot')->label(__('Price per sq ft'))->state(fn (Property $record): ?float => $record->pricePerSquareFoot())->numeric(decimalPlaces: 2),
                  TextColumn::make('price_per_square_meter')->label(__('Price per m²'))->state(fn (Property $record): ?float => $record->pricePerSquareMeter())->numeric(decimalPlaces: 2),
-@@ -346,7 +346,7 @@ public static function table(Table $table): Table
+@@ -287,7 +285,7 @@ public static function table(Table $table): Table
+                 TextColumn::make('created_at')->label(__('filament.property.fields.created_at'))->dateTime()->sortable(),
+             ])
+             ->filters([
+-                SelectFilter::make('status')->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
++                SelectFilter::make('status')->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => AppSupportStatusLabel::property($status)])->all()),
+                 SelectFilter::make('property_template_id')
+                     ->label('Template')
+                     ->options(fn (): array => PropertyTemplate::query()->forTeam(auth()->user()?->current_team_id ?? 0)->orderBy('name')->pluck('name', 'id')->all()),
+@@ -346,7 +344,7 @@ public static function table(Table $table): Table
                          TextInput::make('label')->label(__('filament.property.fields.label'))->required()->maxLength(80),
                          TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                          TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
