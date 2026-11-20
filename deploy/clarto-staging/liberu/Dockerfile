@@ -35,6 +35,7 @@ RUN rm -rf .git .env \
  && php artisan package:discover --ansi \
  && php artisan filament:upgrade --ansi \
  && php /tmp/patch-migrations.php /var/www/html \
+ && mkdir -p modules/module-manager-filament/resources/views \
  && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache
 

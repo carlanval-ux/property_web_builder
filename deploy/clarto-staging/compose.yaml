@@ -8,6 +8,7 @@ name: clarto-staging
 x-liberu-env: &liberu-env
   APP_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
   APP_ENV: staging
+  XDG_CONFIG_HOME: /tmp           # psysh (tinker) config dir writable by www-data
   APP_STAFF_ONLY: "true"          # every web URL requires a session (internal tool)
   IDENTITY_REGISTRATION: closed   # no public self-registration (web or API)
   APP_DEBUG: "false"
@@ -46,6 +47,10 @@ x-liberu-env: &liberu-env
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@clarto.es}
   MAIL_FROM_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
+  # Read-only catalog API for the website (clarto.es/inmuebles), server-to-server.
+  CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
+  CATALOGO_MODO_PRUEBAS: ${CATALOGO_MODO_PRUEBAS:-true}
+  CATALOGO_PRECISION_UBICACION: ${CATALOGO_PRECISION_UBICACION:-aproximada}
 
 x-pwb-env: &pwb-env
   RAILS_ENV: staging

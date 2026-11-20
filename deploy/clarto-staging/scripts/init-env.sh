@@ -57,6 +57,12 @@ EOF
   log "wrote .env (hosts: ${LIBERU_HOST}, ${PWB_HOST})"
 fi
 
+# Keys added after the first install: appended once, existing values never touched.
+ensure_env() { grep -q "^$1=" .env || { echo "$1=$2" >> .env; log "added $1 to .env"; }; }
+ensure_env CATALOGO_API_KEY "$(rand 48)"
+ensure_env CATALOGO_MODO_PRUEBAS true
+ensure_env PREVIEW_HOST "inmuebles-previa.clarto.es"
+
 set -a; source .env; set +a
 
 # Caddy basic-auth snippet for the restricted panels (bcrypt hash, never the password).

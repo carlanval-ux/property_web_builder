@@ -18,4 +18,4 @@ dc run --rm --no-deps -T -e PANEL_BRAND="${PANEL_BRAND:-CLARTO Gestión Inmobili
   $s->footer_copyright = "© ".date("Y")." CLARTO · Lo complejo, claro.";
   $s->save();
   echo "BRAND_OK ".$s->site_name.PHP_EOL;
-' | grep '^BRAND_OK' || die "could not apply panel brand settings"
+' | grep 'BRAND_OK' || die "could not apply panel brand settings"
