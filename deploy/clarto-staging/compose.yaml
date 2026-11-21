@@ -51,6 +51,12 @@ x-liberu-env: &liberu-env
   GHL_LOCATION_ID: ${GHL_LOCATION_ID:-}
   GHL_PIPELINE_ID: ${GHL_PIPELINE_ID:-}
   GHL_WEBHOOK_SECRET: ${GHL_WEBHOOK_SECRET:-}
+  # Captación GHL (PR #18): etapa «Valoración entregada», fecha desde la que se sincroniza y enlaces de cita por oficina.
+  GHL_STAGE_ENTREGADA: ${GHL_STAGE_ENTREGADA:-}
+  GHL_ALTA_DESDE: ${GHL_ALTA_DESDE:-}
+  VALORACIONES_CITA_VALENCIA: ${VALORACIONES_CITA_VALENCIA:-}
+  VALORACIONES_CITA_SAGUNTO: ${VALORACIONES_CITA_SAGUNTO:-}
+  VALORACIONES_CITA_BELLREGUARD: ${VALORACIONES_CITA_BELLREGUARD:-}
   # WhatsApp (WAHA, servicio interno «waha»): API con clave y webhooks firmados (HMAC SHA-512) hacia la URL interna.
   WAHA_URL: http://waha:3000
   WAHA_API_KEY: ${WAHA_API_KEY:?}
