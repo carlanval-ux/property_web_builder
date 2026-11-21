@@ -33,7 +33,7 @@ index 143acb4c..85bff800 100644
      {
          return [Action::make('setup')->label(InstallationSetupWizard::isComplete() ? 'Installation settings' : 'Set up platform')
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..e9894854 100644
+index 65c24053..f601e75f 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -68,7 +68,7 @@ index 65c24053..e9894854 100644
              ->renderHook(
                  PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                  fn (): string => Blade::render(
-@@ -62,8 +70,26 @@ public function panel(Panel $panel): Panel
+@@ -62,8 +70,27 @@ public function panel(Panel $panel): Panel
              ->globalSearch()
              ->discoverResources(in: __DIR__.'/../../Filament/Resources', for: 'Liberu\RealEstate\Application\Filament\Resources')
              ->discoverPages(in: __DIR__.'/../../Filament/Pages', for: 'Liberu\RealEstate\Application\Filament\Pages')
@@ -81,6 +81,7 @@ index 65c24053..e9894854 100644
 +                \App\Filament\Pages\MailSettings::class,
 +                \App\Filament\Pages\WhatsAppSettings::class,
 +                \App\Filament\Pages\WhatsAppQueue::class,
++                \App\Filament\Pages\Conversations::class,
 +                \App\Filament\Pages\UserManual::class,
 +                \App\Filament\Pages\OwnerLinkingQueue::class,
 +                \App\Filament\Pages\SendForSignature::class,
@@ -95,7 +96,7 @@ index 65c24053..e9894854 100644
              ])
              // Labels are deferred (Closures), not eager __() calls: this array is
              // built once at panel registration, before SetLocale middleware has
-@@ -73,6 +99,7 @@ public function panel(Panel $panel): Panel
+@@ -73,6 +100,7 @@ public function panel(Panel $panel): Panel
              // middleware placed after SetLocale, so both resolve against the
              // same, correct locale.
              ->navigationGroups([
@@ -103,7 +104,7 @@ index 65c24053..e9894854 100644
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.sales_lettings')),
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.people_relationships')),
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.property_management')),
-@@ -88,7 +115,6 @@ public function panel(Panel $panel): Panel
+@@ -88,7 +116,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -189,7 +190,7 @@ index 7a2fc332..1639636c 100644
                      ->label('Submit for approval')
                      ->action(fn (Instruction $record): Instruction => app(TransitionInstruction::class)->handle($record, auth()->user()->current_team_id, auth()->id(), InstructionStatus::PendingApproval))
 diff --git a/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php b/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
-index 1933fa13..8e3cc2d5 100644
+index 1933fa13..a9463d29 100644
 --- a/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
 +++ b/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
 @@ -13,6 +13,18 @@ final class EditInstruction extends EditRecord
@@ -199,7 +200,7 @@ index 1933fa13..8e3cc2d5 100644
 +    /** CLARTO: WhatsApp with the file's owner, and preparing the mandate document for signature. */
 +    protected function getHeaderActions(): array
 +    {
-+        $actions = [...parent::getHeaderActions(), \App\Filament\WhatsAppConversation::action()];
++        $actions = [...parent::getHeaderActions(), ...\App\Filament\Communications\CommunicationsUi::actions()];
 +        if (class_exists(\App\Filament\Pages\SendForSignature::class) && \App\Filament\Pages\SendForSignature::canAccess()) {
 +            $actions[] = \Filament\Actions\Action::make('prepareSignature')->label(__('Prepare document for signature'))->icon('heroicon-m-paper-airplane')
 +                ->url(fn (): string => \App\Filament\Pages\SendForSignature::getUrl(['encargo' => $this->getRecord()->getKey()]));
@@ -212,17 +213,23 @@ index 1933fa13..8e3cc2d5 100644
      {
          $user = auth()->user();
 diff --git a/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php b/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
-index c7ba59c2..806eb7a4 100644
+index c7ba59c2..d173283a 100644
 --- a/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
 +++ b/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
-@@ -13,6 +13,12 @@ final class EditParty extends EditRecord
+@@ -13,6 +13,18 @@ final class EditParty extends EditRecord
  {
      protected static string $resource = PartyResource::class;
  
-+    /** CLARTO: WhatsApp with the contact (App\Filament\WhatsAppConversation). */
++    /** CLARTO: contact the client (WhatsApp, SMS, e-mail) and its communications (App\Filament\Communications\CommunicationsUi). */
 +    protected function getHeaderActions(): array
 +    {
-+        return [...parent::getHeaderActions(), \App\Filament\WhatsAppConversation::action()];
++        return [...parent::getHeaderActions(), ...\App\Filament\Communications\CommunicationsUi::actions()];
++    }
++
++    /** CLARTO: the client's «Communications» timeline below the form. */
++    public function content(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
++    {
++        return $schema->components([$this->getFormContentComponent(), $this->getRelationManagersContentComponent(), \App\Filament\Communications\CommunicationsUi::section($this->getRecord())]);
 +    }
 +
      protected function handleRecordUpdate(Model $record, array $data): Model

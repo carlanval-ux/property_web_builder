@@ -76,6 +76,10 @@ x-liberu-env: &liberu-env
   CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
   CATALOGO_MODO_PRUEBAS: ${CATALOGO_MODO_PRUEBAS:-true}
   CATALOGO_PRECISION_UBICACION: ${CATALOGO_PRECISION_UBICACION:-aproximada}
+  # Valoraciones automáticas (clarto.es/inmuebles/valoraciones → panel), server-to-server. Proveedores comerciales apagados (off) por defecto.
+  VALORACIONES_API_KEY: ${VALORACIONES_API_KEY:?}
+  GHL_FIELD_ESTADO_VALORACION: ${GHL_FIELD_ESTADO_VALORACION:-}
+  GHL_FIELD_REFERENCIA_VALORACION: ${GHL_FIELD_REFERENCIA_VALORACION:-}
 
 x-pwb-env: &pwb-env
   RAILS_ENV: staging
@@ -217,6 +221,9 @@ services:
       CATALOGO_API_URL: https://${LIBERU_HOST:?}/api/v1/catalogo
       CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
       CATALOGO_INDEXABLE: "false"
+      # Valoraciones automáticas del panel, llamadas solo desde el servidor de la web.
+      VALORACIONES_API_URL: https://${LIBERU_HOST:?}/api/v1/valoraciones
+      VALORACIONES_API_KEY: ${VALORACIONES_API_KEY:?}
 
   # ------------------------------------------------------------------- PWB --
   pwb-web:

@@ -60,6 +60,7 @@ fi
 # Keys added after the first install: appended once, existing values never touched.
 ensure_env() { grep -q "^$1=" .env || { echo "$1=$2" >> .env; log "added $1 to .env"; }; }
 ensure_env CATALOGO_API_KEY "$(rand 48)"
+ensure_env VALORACIONES_API_KEY "$(rand 48)"   # valoraciones automáticas: web → panel
 ensure_env CATALOGO_MODO_PRUEBAS true
 ensure_env PREVIEW_HOST "inmuebles-previa.clarto.es"
 ensure_env WAHA_API_KEY "$(rand 48)"            # WhatsApp (WAHA): clave de su API, solo red interna
