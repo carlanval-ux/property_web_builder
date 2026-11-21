@@ -89,6 +89,7 @@ x-liberu-env: &liberu-env
   MAIL_IN_USERNAME: ${MAIL_IN_USERNAME:-}
   MAIL_IN_PASSWORD: ${MAIL_IN_PASSWORD:-}
   MAIL_IN_FOLDER: ${MAIL_IN_FOLDER:-INBOX}
+  MAIL_IN_IA_MODELO: ${MAIL_IN_IA_MODELO:-google/gemma-4-26b-a4b-it:free}   # gratuito de OpenRouter; el panel puede elegir otro
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
   # Read-only catalog API for the website (clarto.es/inmuebles), server-to-server.
   CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
