@@ -58,6 +58,8 @@ x-liberu-env: &liberu-env
   VALORACIONES_CITA_VALENCIA: ${VALORACIONES_CITA_VALENCIA:-}
   VALORACIONES_CITA_SAGUNTO: ${VALORACIONES_CITA_SAGUNTO:-}
   VALORACIONES_CITA_BELLREGUARD: ${VALORACIONES_CITA_BELLREGUARD:-}
+  # Modo de prueba de la nutrición por WhatsApp (solo estos móviles del equipo; vaciar tras las pruebas).
+  NUTRICION_WA_PRUEBA_TELEFONOS: ${NUTRICION_WA_PRUEBA_TELEFONOS:-}
   # WhatsApp (WAHA, servicio interno «waha»): API con clave y webhooks firmados (HMAC SHA-512) hacia la URL interna.
   WAHA_URL: http://waha:3000
   WAHA_API_KEY: ${WAHA_API_KEY:?}
