@@ -20,7 +20,7 @@ Equipo ─► panel.clarto.es ─(API catálogo, clave)─► servidor de la web
 ## Servicios
 
 `caddy` (TLS y proxy) · `liberu-app` (Apache + PHP 8.5), `liberu-worker` (cola Redis), `liberu-scheduler` ·
-`redis` · `mailpit` · `web-preview` (TanStack Start en Node; solo si se ha subido la web).
+`redis` · `mailpit` · `waha` (WhatsApp, solo red interna) · `web-preview` (TanStack Start en Node; solo si se ha subido la web).
 
 Versiones fijadas: Liberu por SHA en `versions.env` (rama `staging/clarto` del fork `carlanval-ux/realstate`),
 imágenes por etiqueta (`caddy:2.10.2`, `redis:7.4.5`, `axllent/mailpit:v1.27.10`, `php:8.5-apache-trixie`,
@@ -63,6 +63,33 @@ scripts/panel-admin.sh persona@clarto.es "Nombre Apellido"
 ```
 
 «¿Olvidó su contraseña?» funciona, pero en staging el correo llega al buzón de pruebas (`/buzon/`).
+
+## WhatsApp (WAHA)
+
+Servicio `waha` (`devlikeapro/waha:gows-2026.10.1`, fijada por digest; WAHA Core, motor GOWS, sin navegador).
+**Sin puertos publicados ni ruta en Caddy**: solo `liberu-app` lo alcanza por la red interna
+(`http://waha:3000`, cabecera `X-Api-Key` = `WAHA_API_KEY`). WAHA avisa al panel por
+`http://liberu-app/api/v1/whatsapp/webhook` con firma HMAC SHA-512 (`WAHA_WEBHOOK_HMAC_KEY`); el panel rechaza
+lo que llegue sin firma válida o a través de Caddy. La sesión vinculada vive en el volumen `waha_sessions`
+(sobrevive a reinicios; incluida en el backup del VPS, no en `scripts/backup.sh`: si se pierde, se vuelve a
+escanear el QR). Panel: **Ajustes de la plataforma → WhatsApp** (solo administradores). Detalle:
+`docs/clarto/whatsapp.md` en Liberu.
+
+Primer despliegue con WhatsApp (Liberu con la rama `feat/whatsapp-waha` en `versions.env`):
+
+```bash
+cd /srv/clarto-staging/pwb/deploy/clarto-staging
+git pull
+scripts/init-env.sh                 # añade WAHA_API_KEY y WAHA_WEBHOOK_HMAC_KEY a .env (no toca lo existente)
+sudo scripts/backup.sh
+scripts/deploy.sh                   # migraciones (tablas clarto_whatsapp_*) + arranque de waha
+scripts/compose.sh exec -T liberu-app php artisan clarto:whatsapp-prueba   # WAHA simulado; no guarda nada
+scripts/compose.sh exec -T liberu-app sh -c 'curl -s -o /dev/null -w "%{http_code}\n" -H "X-Api-Key: $WAHA_API_KEY" http://waha:3000/api/sessions'   # 200
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://panel.clarto.es/api/v1/whatsapp/webhook   # 403 (no entra desde fuera)
+```
+
+Después, un administrador vincula la línea: Ajustes de la plataforma → WhatsApp → «Vincular línea» y escanear el QR
+desde el móvil de la línea (WhatsApp → Dispositivos vinculados).
 
 ## Decisiones y parches de staging (revisar con upstream)
 
