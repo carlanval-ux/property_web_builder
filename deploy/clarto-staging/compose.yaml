@@ -51,6 +51,12 @@ x-liberu-env: &liberu-env
   GHL_LOCATION_ID: ${GHL_LOCATION_ID:-}
   GHL_PIPELINE_ID: ${GHL_PIPELINE_ID:-}
   GHL_WEBHOOK_SECRET: ${GHL_WEBHOOK_SECRET:-}
+  # WhatsApp (WAHA, servicio interno «waha»): API con clave y webhooks firmados (HMAC SHA-512) hacia la URL interna.
+  WAHA_URL: http://waha:3000
+  WAHA_API_KEY: ${WAHA_API_KEY:?}
+  WAHA_WEBHOOK_URL: http://liberu-app/api/v1/whatsapp/webhook
+  WAHA_WEBHOOK_HMAC_KEY: ${WAHA_WEBHOOK_HMAC_KEY:?}
+  WAHA_SESSION: ${WAHA_SESSION:-default}   # WAHA Core: una sola sesión, «default»
   # pisos.com (envíos reales desactivados por defecto)
   PISOS_ENABLED: ${PISOS_ENABLED:-false}
   PISOS_DRIVER: ${PISOS_DRIVER:-simulado}
@@ -171,6 +177,27 @@ services:
     depends_on:
       liberu-app: { condition: service_healthy }
 
+  # WhatsApp HTTP API (WAHA Core, motor GOWS sin navegador). Solo red interna: sin
+  # puertos publicados ni ruta en Caddy; la usa liberu-app con X-Api-Key. La sesión
+  # vinculada (QR) vive en el volumen waha_sessions: sobrevive a reinicios y redeploys.
+  waha:
+    image: devlikeapro/waha:gows-2026.10.1@sha256:1f7faeb0227ad5edb5711f7058bfce807ea65e5f92234af0778e4db140f6eb46
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Madrid
+      WAHA_API_KEY: ${WAHA_API_KEY:?}
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WAHA_PRINT_QR: "False"
+      WAHA_EVENTS_DOWNLOAD_MEDIA: "false"    # el panel guarda solo texto
+      WAHA_API_DOWNLOAD_MEDIA: "false"
+      WAHA_GOWS_DEVICE_REQUIRE_FULL_SYNC: "false"   # no sincronizar años de historial
+      WAHA_LOG_FORMAT: JSON
+      WAHA_LOG_LEVEL: info
+    volumes:
+      - waha_sessions:/app/.sessions
+
   # ------------------------------------------------------ website preview --
   # CLARTO website branch under review (clarto.es/inmuebles), no password,
   # noindex. Built only when the source was uploaded (scripts/upload-web.sh).
@@ -278,3 +305,4 @@ volumes:
   pwb_db:
   redis_data:
   pwb_storage:
+  waha_sessions:

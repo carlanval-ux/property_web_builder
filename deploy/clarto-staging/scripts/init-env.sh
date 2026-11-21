@@ -62,6 +62,8 @@ ensure_env() { grep -q "^$1=" .env || { echo "$1=$2" >> .env; log "added $1 to .
 ensure_env CATALOGO_API_KEY "$(rand 48)"
 ensure_env CATALOGO_MODO_PRUEBAS true
 ensure_env PREVIEW_HOST "inmuebles-previa.clarto.es"
+ensure_env WAHA_API_KEY "$(rand 48)"            # WhatsApp (WAHA): clave de su API, solo red interna
+ensure_env WAHA_WEBHOOK_HMAC_KEY "$(rand 48)"   # firma de los webhooks WAHA → panel
 
 set -a; source .env; set +a
 
