@@ -33,7 +33,7 @@ index 143acb4c..85bff800 100644
      {
          return [Action::make('setup')->label(InstallationSetupWizard::isComplete() ? 'Installation settings' : 'Set up platform')
 diff --git a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
-index 65c24053..960809dc 100644
+index 65c24053..e9894854 100644
 --- a/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 +++ b/modules/real-estate-application/src/Providers/Filament/AdminPanelProvider.php
 @@ -12,7 +12,7 @@
@@ -68,17 +68,34 @@ index 65c24053..960809dc 100644
              ->renderHook(
                  PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                  fn (): string => Blade::render(
-@@ -64,6 +72,9 @@ public function panel(Panel $panel): Panel
+@@ -62,8 +70,26 @@ public function panel(Panel $panel): Panel
+             ->globalSearch()
+             ->discoverResources(in: __DIR__.'/../../Filament/Resources', for: 'Liberu\RealEstate\Application\Filament\Resources')
              ->discoverPages(in: __DIR__.'/../../Filament/Pages', for: 'Liberu\RealEstate\Application\Filament\Pages')
++            // CLARTO Alquileres (feat/alquileres): contracts and bookings, rentable units, licences, settings.
++            ->discoverResources(in: app_path('Filament/Alquileres/Resources'), for: 'App\Filament\Alquileres\Resources')
++            ->discoverPages(in: app_path('Filament/Alquileres/Pages'), for: 'App\Filament\Alquileres\Pages')
              ->pages([
                  Dashboard::class,
 +                \App\Filament\Pages\AiSettings::class,
 +                \App\Filament\Pages\MailSettings::class,
++                \App\Filament\Pages\WhatsAppSettings::class,
++                \App\Filament\Pages\WhatsAppQueue::class,
 +                \App\Filament\Pages\UserManual::class,
++                \App\Filament\Pages\OwnerLinkingQueue::class,
++                \App\Filament\Pages\SendForSignature::class,
++                \App\Filament\Pages\Modules::class,
++            ])
++            // CLARTO host resources: owners 360, albaranes, «Formularios» and documents sent for signature.
++            ->resources([
++                \App\Filament\Owners\OwnerResource::class,
++                \App\Filament\Resources\AlbaranResource::class,
++                \App\Filament\Resources\FormTemplateResource::class,
++                \App\Filament\Resources\SignatureRequestResource::class,
              ])
              // Labels are deferred (Closures), not eager __() calls: this array is
              // built once at panel registration, before SetLocale middleware has
-@@ -73,6 +84,7 @@ public function panel(Panel $panel): Panel
+@@ -73,6 +99,7 @@ public function panel(Panel $panel): Panel
              // middleware placed after SetLocale, so both resolve against the
              // same, correct locale.
              ->navigationGroups([
@@ -86,7 +103,7 @@ index 65c24053..960809dc 100644
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.sales_lettings')),
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.people_relationships')),
                  NavigationGroup::make(fn (): string => __('filament.nav_groups.property_management')),
-@@ -88,7 +100,6 @@ public function panel(Panel $panel): Panel
+@@ -88,7 +115,6 @@ public function panel(Panel $panel): Panel
              ->discoverWidgets(in: __DIR__.'/../../Filament/Widgets', for: 'Liberu\RealEstate\Application\Filament\Widgets')
              ->widgets([
                  AccountWidget::class,
@@ -159,8 +176,60 @@ index 6febd55f..020e0377 100644
                  40 => 'Liberu\\RealEstate\\RightmoveFilament\\Resources\\RightmoveSyncResource',
                  50 => 'Liberu\\RealEstate\\ZooplaFilament\\Resources\\ZooplaSyncResource',
                  60 => 'Liberu\\RealEstate\\OnTheMarketFilament\\Resources\\OnTheMarketSyncResource',
+diff --git a/modules/real-estate-instructions-filament/src/Resources/InstructionResource.php b/modules/real-estate-instructions-filament/src/Resources/InstructionResource.php
+index 7a2fc332..1639636c 100644
+--- a/modules/real-estate-instructions-filament/src/Resources/InstructionResource.php
++++ b/modules/real-estate-instructions-filament/src/Resources/InstructionResource.php
+@@ -61,6 +61,7 @@ public static function table(Table $table): Table
+         return $table->columns([TextColumn::make('subject')->label(__('filament.instruction.fields.subject'))->searchable(), TextColumn::make('status')->label(__('filament.instruction.fields.status'))->badge(), TextColumn::make('created_at')->label(__('filament.instruction.fields.created_at'))->dateTime()->sortable()])
+             ->recordActions([
+                 EditAction::make(),
++                \App\Filament\AlbaranActions::newFromInstruction(),
+                 Action::make('submit')
+                     ->label('Submit for approval')
+                     ->action(fn (Instruction $record): Instruction => app(TransitionInstruction::class)->handle($record, auth()->user()->current_team_id, auth()->id(), InstructionStatus::PendingApproval))
+diff --git a/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php b/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
+index 1933fa13..8e3cc2d5 100644
+--- a/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
++++ b/modules/real-estate-instructions-filament/src/Resources/InstructionResource/Pages/EditInstruction.php
+@@ -13,6 +13,18 @@ final class EditInstruction extends EditRecord
+ {
+     protected static string $resource = InstructionResource::class;
+ 
++    /** CLARTO: WhatsApp with the file's owner, and preparing the mandate document for signature. */
++    protected function getHeaderActions(): array
++    {
++        $actions = [...parent::getHeaderActions(), \App\Filament\WhatsAppConversation::action()];
++        if (class_exists(\App\Filament\Pages\SendForSignature::class) && \App\Filament\Pages\SendForSignature::canAccess()) {
++            $actions[] = \Filament\Actions\Action::make('prepareSignature')->label(__('Prepare document for signature'))->icon('heroicon-m-paper-airplane')
++                ->url(fn (): string => \App\Filament\Pages\SendForSignature::getUrl(['encargo' => $this->getRecord()->getKey()]));
++        }
++
++        return $actions;
++    }
++
+     protected function handleRecordUpdate(Model $record, array $data): Model
+     {
+         $user = auth()->user();
+diff --git a/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php b/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
+index c7ba59c2..806eb7a4 100644
+--- a/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
++++ b/modules/real-estate-parties-filament/src/Resources/PartyResource/Pages/EditParty.php
+@@ -13,6 +13,12 @@ final class EditParty extends EditRecord
+ {
+     protected static string $resource = PartyResource::class;
+ 
++    /** CLARTO: WhatsApp with the contact (App\Filament\WhatsAppConversation). */
++    protected function getHeaderActions(): array
++    {
++        return [...parent::getHeaderActions(), \App\Filament\WhatsAppConversation::action()];
++    }
++
+     protected function handleRecordUpdate(Model $record, array $data): Model
+     {
+         $user = auth()->user();
 diff --git a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
-index d619b396..6a82f8e7 100644
+index d619b396..bac675e6 100644
 --- a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 +++ b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 @@ -74,8 +74,7 @@ public static function form(Schema $schema): Schema
@@ -182,7 +251,7 @@ index d619b396..6a82f8e7 100644
                                  ->required(),
                              Select::make('property_category_id')
                                  ->label(__('filament.property.fields.property_category_id'))
-@@ -119,6 +118,10 @@ public static function form(Schema $schema): Schema
+@@ -119,6 +118,12 @@ public static function form(Schema $schema): Schema
                                  ->nullable(),
                          ]),
                  ]),
@@ -190,10 +259,12 @@ index d619b396..6a82f8e7 100644
 +                \App\Filament\PropertyPublicTexts::tab(),
 +                \App\Filament\PropertyPhotos::tab(),
 +                \App\Filament\PropertyPortals::tab(),
++                \App\Filament\AlbaranTabs::property(),
++                \App\Filament\SignatureRequestsTab::forProperty(),
                  Tab::make(__('filament.property.sections.location'))->schema([
                      Section::make(__('filament.property.sections.location'))
                          ->description(__('filament.property.sections.location_description'))
-@@ -139,7 +142,6 @@ public static function form(Schema $schema): Schema
+@@ -139,7 +144,6 @@ public static function form(Schema $schema): Schema
                      Section::make(__('filament.property.sections.description'))
                          ->columns(1)
                          ->schema([
@@ -201,7 +272,7 @@ index d619b396..6a82f8e7 100644
                              Textarea::make('internal_notes')->label(__('filament.property.fields.internal_notes'))->columnSpanFull(),
                          ]),
                  ]),
-@@ -153,7 +155,7 @@ public static function form(Schema $schema): Schema
+@@ -153,7 +157,7 @@ public static function form(Schema $schema): Schema
                              TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                              TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
                              TextInput::make('reception_rooms')->label(__('filament.property.fields.reception_rooms'))->numeric()->minValue(0),
@@ -210,7 +281,7 @@ index d619b396..6a82f8e7 100644
                              TextInput::make('year_built')
                                  ->label(__('filament.property.fields.year_built'))
                                  ->numeric()
-@@ -271,13 +273,11 @@ public static function table(Table $table): Table
+@@ -271,13 +275,11 @@ public static function table(Table $table): Table
                  TextColumn::make('agent.name')->label(__('filament.property.fields.agent_id'))->sortable(),
                  TextColumn::make('property_type')->label(__('filament.property.fields.property_type'))->searchable()->sortable(),
                  TextColumn::make('deal_type')->label(__('filament.property.fields.deal_type'))->badge()->formatStateUsing(fn (\Liberu\RealEstate\Properties\Domain\DealType|string|null $state): string => $state !== null ? __('filament.property.deal_types.'.($state instanceof DealType ? $state->value : $state)) : '—'),
@@ -226,7 +297,7 @@ index d619b396..6a82f8e7 100644
                  TextColumn::make('year_built')->label(__('filament.property.fields.year_built'))->sortable(),
                  TextColumn::make('price_per_square_foot')->label(__('Price per sq ft'))->state(fn (Property $record): ?float => $record->pricePerSquareFoot())->numeric(decimalPlaces: 2),
                  TextColumn::make('price_per_square_meter')->label(__('Price per m²'))->state(fn (Property $record): ?float => $record->pricePerSquareMeter())->numeric(decimalPlaces: 2),
-@@ -287,7 +287,7 @@ public static function table(Table $table): Table
+@@ -287,7 +289,7 @@ public static function table(Table $table): Table
                  TextColumn::make('created_at')->label(__('filament.property.fields.created_at'))->dateTime()->sortable(),
              ])
              ->filters([
@@ -235,7 +306,7 @@ index d619b396..6a82f8e7 100644
                  SelectFilter::make('property_template_id')
                      ->label('Template')
                      ->options(fn (): array => PropertyTemplate::query()->forTeam(auth()->user()?->current_team_id ?? 0)->orderBy('name')->pluck('name', 'id')->all()),
-@@ -346,7 +346,7 @@ public static function table(Table $table): Table
+@@ -346,7 +348,7 @@ public static function table(Table $table): Table
                          TextInput::make('label')->label(__('filament.property.fields.label'))->required()->maxLength(80),
                          TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                          TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
@@ -244,7 +315,7 @@ index d619b396..6a82f8e7 100644
                      ])
                      ->action(fn (Property $record, array $data): mixed => app(UpsertPropertyUnit::class)->handle($record, (int) auth()->user()->current_team_id, $data)),
                  Action::make('key')
-@@ -381,6 +381,15 @@ public static function table(Table $table): Table
+@@ -381,6 +383,15 @@ public static function table(Table $table): Table
                      ->label(__('filament.property.actions.under_offer'))
                      ->action(fn (Property $record): Property => app(TransitionProperty::class)->handle($record->team_id, auth()->id(), $record->getKey(), PropertyStatus::UnderOffer))
                      ->visible(fn (Property $record): bool => $record->status === PropertyStatus::Available),
