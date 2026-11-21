@@ -75,6 +75,45 @@
 }
 
 # ---------------------------------------------------------------------------
+# Public valuation report links: https://valoraciones.clarto.es/r/{codigo}.
+# Only /r/* reaches the panel app (page + PDF, resolved there, no redirect);
+# everything else on this host is a 404 here: no panel, no API, no storage.
+# The app sets CSP, no-store and the rest; noindex and no-referrer are also
+# forced here (deferred «>»: they replace whatever comes back). No access log
+# on any site of this Caddyfile, so the codes in the URL are never written by
+# Caddy; Apache writes /r/* requests without the path (apache-staging.conf).
+# ---------------------------------------------------------------------------
+{$VALORACIONES_HOST:valoraciones.clarto.es} {
+	import tls-{$TLS_MODE:acme}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		>Referrer-Policy no-referrer
+		>X-Robots-Tag "noindex, nofollow, noarchive"
+		-Server
+		-X-Powered-By
+	}
+	encode zstd gzip
+
+	handle /robots.txt {
+		header Content-Type "text/plain; charset=utf-8"
+		respond <<TXT
+			User-agent: *
+			Disallow: /
+			TXT 200
+	}
+
+	handle /r/* {
+		reverse_proxy liberu-app:80
+	}
+
+	handle {
+		header Content-Security-Policy "default-src 'none'"
+		respond "No encontrado" 404
+	}
+}
+
+# ---------------------------------------------------------------------------
 # Website preview (branch under review): open without password, never indexed.
 # ---------------------------------------------------------------------------
 {$PREVIEW_HOST} {

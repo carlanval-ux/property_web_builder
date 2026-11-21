@@ -10,6 +10,7 @@ con renovación) y despliegue reproducible desde esta rama (`staging/clarto` del
 | https://panel.clarto.es/buzon/ | Buzón de pruebas (Mailpit): todo el correo saliente de staging | basic auth de operación |
 | https://panel.clarto.es/api/v1/catalogo/* | API de catálogo de solo lectura | clave de servidor `X-Catalogo-Clave` |
 | https://inmuebles-previa.clarto.es | Vista previa de la web (rama `feat/catalogo-inmuebles`) | abierta, `noindex` + `robots.txt` Disallow |
+| https://valoraciones.clarto.es/r/{codigo} | Enlace público del informe de valoración (página + PDF) | código aleatorio de 128 bits; solo `/r/*`, el resto 404; `noindex`, `no-referrer`, CSP; Apache registra `/r/[codigo-oculto]` y Caddy no tiene log de accesos |
 | ~~inmuebles.clarto.es~~ | PropertyWebBuilder | **en pausa** (perfil `pwb`, `ENABLE_PWB=true`) |
 
 ```

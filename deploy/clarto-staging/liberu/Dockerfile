@@ -23,6 +23,8 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
     COMPOSER_FUND=0
 RUN a2enmod rewrite headers remoteip \
  && sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+ && sed -ri 's|^(\s*)CustomLog (\S+) combined$|\1CustomLog \2 combined env=!enlace_informe\n\1CustomLog \2 enlace_informe env=enlace_informe|' /etc/apache2/sites-available/000-default.conf \
+ && grep -q 'enlace_informe env=enlace_informe' /etc/apache2/sites-available/000-default.conf \
  && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY apache-staging.conf /etc/apache2/conf-enabled/zz-staging.conf
 COPY php-staging.ini "$PHP_INI_DIR/conf.d/zz-staging.ini"

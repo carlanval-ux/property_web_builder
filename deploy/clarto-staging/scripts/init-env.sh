@@ -63,6 +63,7 @@ ensure_env CATALOGO_API_KEY "$(rand 48)"
 ensure_env VALORACIONES_API_KEY "$(rand 48)"   # valoraciones automáticas: web → panel
 ensure_env CATALOGO_MODO_PRUEBAS true
 ensure_env PREVIEW_HOST "inmuebles-previa.clarto.es"
+ensure_env VALORACIONES_HOST "valoraciones.clarto.es"   # enlaces públicos del informe (solo /r/*)
 ensure_env WAHA_API_KEY "$(rand 48)"            # WhatsApp (WAHA): clave de su API, solo red interna
 ensure_env WAHA_WEBHOOK_HMAC_KEY "$(rand 48)"   # firma de los webhooks WAHA → panel
 
