@@ -104,6 +104,9 @@
 	}
 
 	handle /r/* {
+		# No trailing-slash redirect from Apache/Laravel (it would point to http:// and
+		# carry the code in Location): /r/{codigo}/ is served as /r/{codigo}.
+		uri strip_suffix /
 		reverse_proxy liberu-app:80
 	}
 
