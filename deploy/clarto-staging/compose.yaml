@@ -60,6 +60,8 @@ x-liberu-env: &liberu-env
   VALORACIONES_CITA_BELLREGUARD: ${VALORACIONES_CITA_BELLREGUARD:-}
   # Modo de prueba de la nutrición por WhatsApp (solo estos móviles del equipo; vaciar tras las pruebas).
   NUTRICION_WA_PRUEBA_TELEFONOS: ${NUTRICION_WA_PRUEBA_TELEFONOS:-}
+  # Enlaces públicos del informe https://<VALORACIONES_HOST>/r/{codigo} (Caddy sirve solo /r/* en ese host).
+  VALORACIONES_ENLACES_HOST: ${VALORACIONES_HOST:-valoraciones.clarto.es}
   # WhatsApp (WAHA, servicio interno «waha»): API con clave y webhooks firmados (HMAC SHA-512) hacia la URL interna.
   WAHA_URL: http://waha:3000
   WAHA_API_KEY: ${WAHA_API_KEY:?}
@@ -128,6 +130,7 @@ services:
       TLS_MODE: ${TLS_MODE:-acme}
       CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
       PREVIEW_HOST: ${PREVIEW_HOST:-inmuebles-previa.clarto.es}
+      VALORACIONES_HOST: ${VALORACIONES_HOST:-valoraciones.clarto.es}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./secrets/panel_auth.caddy:/etc/caddy/panel_auth.caddy:ro
