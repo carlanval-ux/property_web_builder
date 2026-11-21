@@ -52,6 +52,7 @@ x-liberu-env: &liberu-env
   GHL_PIPELINE_ID: ${GHL_PIPELINE_ID:-}
   GHL_WEBHOOK_SECRET: ${GHL_WEBHOOK_SECRET:-}
   # Captación GHL (PR #18): etapa «Valoración entregada», fecha desde la que se sincroniza y enlaces de cita por oficina.
+  GHL_PIPELINE_STAGE_ID: ${GHL_PIPELINE_STAGE_ID:-}
   GHL_STAGE_ENTREGADA: ${GHL_STAGE_ENTREGADA:-}
   GHL_ALTA_DESDE: ${GHL_ALTA_DESDE:-}
   VALORACIONES_CITA_VALENCIA: ${VALORACIONES_CITA_VALENCIA:-}
