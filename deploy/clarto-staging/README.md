@@ -21,7 +21,8 @@ Equipo ─► panel.clarto.es ─(API catálogo, clave)─► servidor de la web
 ## Servicios
 
 `caddy` (TLS y proxy) · `liberu-app` (Apache + PHP 8.5), `liberu-worker` (cola Redis), `liberu-scheduler` ·
-`redis` · `mailpit` · `waha` (WhatsApp, solo red interna) · `web-preview` (TanStack Start en Node; solo si se ha subido la web).
+`redis` · `mailpit` · `waha` (WhatsApp, solo red interna) · `web-preview` (TanStack Start en Node; solo si se ha subido la web) ·
+`iopaint` (quitar marcas de agua; opcional, red interna sin salida, ver abajo).
 
 Versiones fijadas: Liberu por SHA en `versions.env` (rama `staging/clarto` del fork `carlanval-ux/realstate`),
 imágenes por etiqueta (`caddy:2.10.2`, `redis:7.4.5`, `axllent/mailpit:v1.27.10`, `php:8.5-apache-trixie`,
@@ -91,6 +92,27 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://panel.clarto.es/api/v1/
 
 Después, un administrador vincula la línea: Ajustes de la plataforma → WhatsApp → «Vincular línea» y escanear el QR
 desde el móvil de la línea (WhatsApp → Dispositivos vinculados).
+
+## Quitar marcas de agua (IOPaint, opcional)
+
+Servicio `iopaint` (`iopaint/Dockerfile`: IOPaint 1.6.0 + LaMa, torch CPU, modelo dentro de la imagen comprobado por
+MD5). Solo en la red interna `marcas-agua` (`internal: true`, sin salida a internet): lo llama únicamente
+`liberu-worker` por la cola `marcas-agua` (después de `default`, de una foto en una). Límites: 2 CPU con prioridad baja
+(`cpu_shares: 256`) y 2,5 GB de memoria. El panel solo lo usa con colaboradores que lo autorizan por escrito; el
+original se conserva en privado y el equipo aprueba cada foto (Liberu `docs/clarto/importacion-colaboradores.md`).
+
+Medido en este VPS (22/11/2026, 4 vCPU Haswell, 7,7 GB): arranque 12 s; 1,2 GB en reposo, 1,6 GB de pico;
+~5 s por foto de 1600×1200 con la máscara de la marca; 24 s en el peor caso (toda la foto). La imagen ocupa ~3,9 GB y
+**construirla deja ~10 GB de caché de BuildKit**: liberarla después (`docker buildx du` → `docker buildx prune --filter id=…`
+de las capas de `iopaint`) para no apretar el disco (el VPS estaba al 80 %).
+
+Apagado por defecto. Para encenderlo:
+
+```bash
+echo 'IOPAINT_URL=http://iopaint:8080' >> .env   # activa el perfil «marcas-agua» (scripts/lib.sh) y la función del panel
+scripts/deploy.sh                                # construye clarto/iopaint:1.6.0 y arranca el servicio
+scripts/compose.sh exec -T liberu-worker sh -c 'curl -s -o /dev/null -w "%{http_code}\n" http://iopaint:8080/api/v1/server-config'   # 200
+```
 
 ## Decisiones y parches de staging (revisar con upstream)
 

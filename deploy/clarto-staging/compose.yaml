@@ -77,6 +77,8 @@ x-liberu-env: &liberu-env
   PISOS_API_KEY: ${PISOS_API_KEY:-}
   PISOS_USER_ID: ${PISOS_USER_ID:-}
   PISOS_CONTACTO_TELEFONO: ${PISOS_CONTACTO_TELEFONO:-}
+  # Quitar marcas de agua (servicio «iopaint», perfil «marcas-agua»). Vacío = función apagada (solo «revisar fotos»).
+  IOPAINT_URL: ${IOPAINT_URL:-}
   MAIL_MAILER: smtp
   MAIL_HOST: ${MAIL_HOST:-mailpit}
   MAIL_PORT: "${MAIL_PORT:-1025}"
@@ -187,10 +189,12 @@ services:
   liberu-worker:
     image: clarto/liberu:${LIBERU_REF:?}
     restart: unless-stopped
-    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    # «marcas-agua» after «default»: photo cleaning only runs when nothing else waits, one photo at a time.
+    command: ["php", "artisan", "queue:work", "--queue=default,marcas-agua", "--sleep=3", "--tries=3", "--max-time=3600"]
     environment: *liberu-env
     volumes:
       - liberu_storage:/var/www/html/storage/app
+    networks: [default, marcas-agua]
     depends_on:
       liberu-app: { condition: service_healthy }
 
@@ -232,6 +236,28 @@ services:
       WHATSAPP_HOOK_RETRIES_ATTEMPTS: "6"
     volumes:
       - waha_sessions:/app/.sessions
+
+  # Quitar la marca de agua de las fotos de colaboradores que lo AUTORIZAN por escrito (panel: ficha del colaborador).
+  # IOPaint/LaMa en CPU, red interna sin salida a internet (el modelo va dentro de la imagen); solo lo llama el
+  # liberu-worker (cola «marcas-agua»). Perfil «marcas-agua»: arranca solo si .env define IOPAINT_URL (scripts/lib.sh).
+  # Medido en este VPS (22/11/2026, 4 vCPU/7,7 GB): 12 s de arranque, 1,2 GB en reposo, 1,6 GB de pico, ~5 s por
+  # foto de 1600×1200 con la máscara de la marca, 24 s en el peor caso (máscara completa). Imagen ~3,9 GB.
+  iopaint:
+    profiles: ["marcas-agua"]
+    build: ./iopaint
+    image: clarto/iopaint:1.6.0
+    restart: unless-stopped
+    networks: [marcas-agua]
+    cpus: 2.0
+    cpu_shares: 256        # baja prioridad frente al panel
+    mem_limit: 2560m
+    memswap_limit: 2560m
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8080/api/v1/server-config"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   # ------------------------------------------------------ website preview --
   # CLARTO website branch under review (clarto.es/inmuebles), no password,
@@ -334,6 +360,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+
+networks:
+  default: {}
+  marcas-agua:
+    internal: true   # sin salida a internet: ninguna foto sale del servidor
 
 volumes:
   caddy_data:
