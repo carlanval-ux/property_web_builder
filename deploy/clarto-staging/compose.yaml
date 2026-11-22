@@ -83,6 +83,13 @@ x-liberu-env: &liberu-env
   MAIL_PASSWORD: ${MAIL_PASSWORD:-}
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@clarto.es}
   MAIL_FROM_NAME: ${PANEL_BRAND:-CLARTO Gestión Inmobiliaria}
+  # Correo entrante: el panel LEE info@ por IMAP (solo lectura) y lo clasifica. Lo configura scripts/set-imap.sh.
+  MAIL_IN_HOST: ${MAIL_IN_HOST:-imap.hostinger.com}
+  MAIL_IN_PORT: "${MAIL_IN_PORT:-993}"
+  MAIL_IN_USERNAME: ${MAIL_IN_USERNAME:-}
+  MAIL_IN_PASSWORD: ${MAIL_IN_PASSWORD:-}
+  MAIL_IN_FOLDER: ${MAIL_IN_FOLDER:-INBOX}
+  MAIL_IN_IA_MODELO: ${MAIL_IN_IA_MODELO:-google/gemma-4-26b-a4b-it:free}   # gratuito de OpenRouter; el panel puede elegir otro
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
   # Read-only catalog API for the website (clarto.es/inmuebles), server-to-server.
   CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
