@@ -132,3 +132,26 @@
 # public catalog is served by the CLARTO website at clarto.es/inmuebles, fed by
 # the panel's read-only catalog API (/api/v1/catalogo/*, CORS-limited).
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Conector WAHA ↔ HighLevel (proyecto Compose aparte «conector-ghl», unido a esta
+# red con el alias conector-ghl). Solo se publican la Delivery URL del proveedor
+# de conversación, el retorno OAuth de la app privada y /health. El webhook de
+# WAHA (/webhooks/waha/*) no pasa por aquí: va por la red interna.
+# Si el conector no está arrancado, este host responde 502 y nada más cambia.
+# ---------------------------------------------------------------------------
+{$CONECTOR_GHL_HOST:conector-wa.clarto.es} {
+	import tls-{$TLS_MODE:acme}
+	import security_headers
+	header X-Robots-Tag "noindex, nofollow"
+	request_body {
+		max_size 1MB
+	}
+	@conector path /ghl/delivery /oauth/callback /health
+	handle @conector {
+		reverse_proxy conector-ghl:8080
+	}
+	handle {
+		respond "No encontrado" 404
+	}
+}

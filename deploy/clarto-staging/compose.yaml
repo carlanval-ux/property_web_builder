@@ -69,6 +69,8 @@ x-liberu-env: &liberu-env
   WAHA_WEBHOOK_URL: http://liberu-app/api/v1/whatsapp/webhook
   WAHA_WEBHOOK_HMAC_KEY: ${WAHA_WEBHOOK_HMAC_KEY:?}
   WAHA_SESSION: ${WAHA_SESSION:-default}   # WAHA Core: una sola sesión, «default»
+  # Conector WAHA ↔ HighLevel (proyecto Compose aparte «conector-ghl»): clave de POST /api/v1/conector/excluido.
+  CONECTOR_GHL_CLAVE: ${CONECTOR_GHL_CLAVE:-}
   # pisos.com (envíos reales desactivados por defecto)
   PISOS_ENABLED: ${PISOS_ENABLED:-false}
   PISOS_DRIVER: ${PISOS_DRIVER:-simulado}
@@ -139,6 +141,7 @@ services:
       CATALOG_INDEXING: ${CATALOG_INDEXING:-off}
       PREVIEW_HOST: ${PREVIEW_HOST:-inmuebles-previa.clarto.es}
       VALORACIONES_HOST: ${VALORACIONES_HOST:-valoraciones.clarto.es}
+      CONECTOR_GHL_HOST: ${CONECTOR_GHL_HOST:-conector-wa.clarto.es}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./secrets/panel_auth.caddy:/etc/caddy/panel_auth.caddy:ro
@@ -219,6 +222,14 @@ services:
       WAHA_GOWS_DEVICE_REQUIRE_FULL_SYNC: "false"   # no sincronizar años de historial
       WAHA_LOG_FORMAT: JSON
       WAHA_LOG_LEVEL: info
+      # Conector WAHA ↔ HighLevel: webhook global ADEMÁS del de Liberu (que sigue en la configuración de la sesión).
+      # Vacío = desactivado. Cambiarlo recrea el contenedor WAHA (la sesión vinculada se conserva en waha_sessions).
+      WHATSAPP_HOOK_URL: ${CONECTOR_WAHA_WEBHOOK_URL:-}
+      WHATSAPP_HOOK_EVENTS: message,message.ack,session.status
+      WHATSAPP_HOOK_HMAC_KEY: ${CONECTOR_WAHA_HMAC_KEY:-}
+      WHATSAPP_HOOK_RETRIES_POLICY: exponential
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "2"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "6"
     volumes:
       - waha_sessions:/app/.sessions
 
