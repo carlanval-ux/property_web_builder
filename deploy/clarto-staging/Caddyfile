@@ -135,9 +135,11 @@
 
 # ---------------------------------------------------------------------------
 # Conector WAHA ↔ HighLevel (proyecto Compose aparte «conector-ghl», unido a esta
-# red con el alias conector-ghl). Solo se publican la Delivery URL del proveedor
-# de conversación, el retorno OAuth de la app privada y /health. El webhook de
-# WAHA (/webhooks/waha/*) no pasa por aquí: va por la red interna.
+# red con el alias conector-ghl). Se publican /ghl/* (Delivery URL, webhook de la
+# app, workflows), el retorno OAuth, /health, la API para SaaS (/api/v1), el panel
+# central (/admin) y la página dentro de GHL (/pagina), cada uno con su propia
+# autenticación. El webhook de WAHA (/webhooks/waha/*) no pasa por aquí: va por la
+# red interna.
 # Si el conector no está arrancado, este host responde 502 y nada más cambia.
 # ---------------------------------------------------------------------------
 {$CONECTOR_GHL_HOST:conector-wa.clarto.es} {
@@ -147,7 +149,7 @@
 	request_body {
 		max_size 1MB
 	}
-	@conector path /ghl/delivery /oauth/callback /health
+	@conector path /ghl/* /oauth/callback /health /api/v1/* /admin /admin/* /pagina /pagina/api
 	handle @conector {
 		reverse_proxy conector-ghl:8080
 	}
