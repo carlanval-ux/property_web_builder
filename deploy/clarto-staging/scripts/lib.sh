@@ -19,6 +19,11 @@ if [ -f "$BUNDLE_DIR/src/web/.source-ref" ]; then
   export COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}preview"
 fi
 
+# Watermark removal (IOPaint): the service runs only once .env sets IOPAINT_URL (e.g. http://iopaint:8080).
+if grep -Eq '^IOPAINT_URL=.+' "$BUNDLE_DIR/.env" 2>/dev/null; then
+  export COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}marcas-agua"
+fi
+
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-clarto-staging}"
 BACKUP_ROOT="${BACKUP_ROOT:-/srv/clarto-staging/backups}"
 
