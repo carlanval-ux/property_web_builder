@@ -253,10 +253,17 @@ index c7ba59c2..02daa476 100644
      {
          $user = auth()->user();
 diff --git a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
-index d619b396..79523387 100644
+index d619b396..75dace1f 100644
 --- a/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
 +++ b/modules/real-estate-properties-filament/src/Resources/PropertyResource.php
-@@ -74,8 +74,7 @@ public static function form(Schema $schema): Schema
+@@ -68,14 +68,14 @@ public static function getPluralModelLabel(): string
+     public static function form(Schema $schema): Schema
+     {
+         return $schema->components([
++            \App\Filament\Collaborators\PropertyOrigin::notice(),   // CLARTO: inmueble de colaborador (solo panel interno)
+             Tabs::make('Property')->columnSpanFull()->tabs([
+                 Tab::make(__('filament.property.sections.basic'))->schema([
+                     Section::make(__('filament.property.sections.basic'))
                          ->description(__('filament.property.sections.basic_description'))
                          ->columns(2)
                          ->schema([
@@ -266,7 +273,7 @@ index d619b396..79523387 100644
                              Select::make('deal_type')
                                  ->label(__('filament.property.fields.deal_type'))
                                  ->options([
-@@ -87,7 +86,7 @@ public static function form(Schema $schema): Schema
+@@ -87,7 +87,7 @@ public static function form(Schema $schema): Schema
                                  ->required(),
                              Select::make('property_type')
                                  ->label(__('filament.property.fields.property_type'))
@@ -275,7 +282,7 @@ index d619b396..79523387 100644
                                  ->required(),
                              Select::make('property_category_id')
                                  ->label(__('filament.property.fields.property_category_id'))
-@@ -119,6 +118,14 @@ public static function form(Schema $schema): Schema
+@@ -119,6 +119,14 @@ public static function form(Schema $schema): Schema
                                  ->nullable(),
                          ]),
                  ]),
@@ -290,7 +297,7 @@ index d619b396..79523387 100644
                  Tab::make(__('filament.property.sections.location'))->schema([
                      Section::make(__('filament.property.sections.location'))
                          ->description(__('filament.property.sections.location_description'))
-@@ -139,7 +146,6 @@ public static function form(Schema $schema): Schema
+@@ -139,7 +147,6 @@ public static function form(Schema $schema): Schema
                      Section::make(__('filament.property.sections.description'))
                          ->columns(1)
                          ->schema([
@@ -298,7 +305,7 @@ index d619b396..79523387 100644
                              Textarea::make('internal_notes')->label(__('filament.property.fields.internal_notes'))->columnSpanFull(),
                          ]),
                  ]),
-@@ -153,7 +159,7 @@ public static function form(Schema $schema): Schema
+@@ -153,7 +160,7 @@ public static function form(Schema $schema): Schema
                              TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                              TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
                              TextInput::make('reception_rooms')->label(__('filament.property.fields.reception_rooms'))->numeric()->minValue(0),
@@ -307,7 +314,16 @@ index d619b396..79523387 100644
                              TextInput::make('year_built')
                                  ->label(__('filament.property.fields.year_built'))
                                  ->numeric()
-@@ -271,13 +277,11 @@ public static function table(Table $table): Table
+@@ -264,6 +271,8 @@ public static function table(Table $table): Table
+                         : null),
+                 TextColumn::make('reference')->label(__('filament.property.fields.reference'))->state(fn (Property $record): string => $record->reference())->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('id', $direction)),
+                 TextColumn::make('title')->label(__('filament.property.fields.title'))->searchable()->sortable()->wrap()->limit(40),
++                \App\Filament\Collaborators\PropertyOrigin::column(),
++                \App\Filament\PropertyPortals::column(),
+                 TextColumn::make('address')->label(__('filament.property.fields.address'))->searchable()->sortable()->wrap(),
+                 TextColumn::make('territory.name')->label(__('filament.property.fields.territory_id'))->sortable(),
+                 TextColumn::make('region.name')->label(__('filament.property.fields.region_id'))->sortable()->toggleable(isToggledHiddenByDefault: true),
+@@ -271,13 +280,11 @@ public static function table(Table $table): Table
                  TextColumn::make('agent.name')->label(__('filament.property.fields.agent_id'))->sortable(),
                  TextColumn::make('property_type')->label(__('filament.property.fields.property_type'))->searchable()->sortable(),
                  TextColumn::make('deal_type')->label(__('filament.property.fields.deal_type'))->badge()->formatStateUsing(fn (\Liberu\RealEstate\Properties\Domain\DealType|string|null $state): string => $state !== null ? __('filament.property.deal_types.'.($state instanceof DealType ? $state->value : $state)) : '—'),
@@ -323,16 +339,18 @@ index d619b396..79523387 100644
                  TextColumn::make('year_built')->label(__('filament.property.fields.year_built'))->sortable(),
                  TextColumn::make('price_per_square_foot')->label(__('Price per sq ft'))->state(fn (Property $record): ?float => $record->pricePerSquareFoot())->numeric(decimalPlaces: 2),
                  TextColumn::make('price_per_square_meter')->label(__('Price per m²'))->state(fn (Property $record): ?float => $record->pricePerSquareMeter())->numeric(decimalPlaces: 2),
-@@ -287,7 +291,7 @@ public static function table(Table $table): Table
+@@ -287,7 +294,9 @@ public static function table(Table $table): Table
                  TextColumn::make('created_at')->label(__('filament.property.fields.created_at'))->dateTime()->sortable(),
              ])
              ->filters([
 -                SelectFilter::make('status')->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
 +                SelectFilter::make('status')->options(collect(PropertyStatus::cases())->mapWithKeys(fn (PropertyStatus $status): array => [$status->value => \App\Support\StatusLabel::property($status)])->all()),
++                ...\App\Filament\Collaborators\PropertyOrigin::filters(),
++                ...\App\Filament\PropertyPortals::filters(),
                  SelectFilter::make('property_template_id')
                      ->label('Template')
                      ->options(fn (): array => PropertyTemplate::query()->forTeam(auth()->user()?->current_team_id ?? 0)->orderBy('name')->pluck('name', 'id')->all()),
-@@ -346,7 +350,7 @@ public static function table(Table $table): Table
+@@ -346,7 +355,7 @@ public static function table(Table $table): Table
                          TextInput::make('label')->label(__('filament.property.fields.label'))->required()->maxLength(80),
                          TextInput::make('bedrooms')->label(__('filament.property.fields.bedrooms'))->numeric()->minValue(0),
                          TextInput::make('bathrooms')->label(__('filament.property.fields.bathrooms'))->numeric()->minValue(0),
@@ -341,7 +359,7 @@ index d619b396..79523387 100644
                      ])
                      ->action(fn (Property $record, array $data): mixed => app(UpsertPropertyUnit::class)->handle($record, (int) auth()->user()->current_team_id, $data)),
                  Action::make('key')
-@@ -381,6 +385,15 @@ public static function table(Table $table): Table
+@@ -381,6 +390,15 @@ public static function table(Table $table): Table
                      ->label(__('filament.property.actions.under_offer'))
                      ->action(fn (Property $record): Property => app(TransitionProperty::class)->handle($record->team_id, auth()->id(), $record->getKey(), PropertyStatus::UnderOffer))
                      ->visible(fn (Property $record): bool => $record->status === PropertyStatus::Available),
@@ -357,6 +375,15 @@ index d619b396..79523387 100644
                  Action::make('sold')
                      ->label(__('filament.property.actions.sold'))
                      ->action(fn (Property $record): Property => app(TransitionProperty::class)->handle($record->team_id, auth()->id(), $record->getKey(), PropertyStatus::Sold))
+@@ -391,7 +409,7 @@ public static function table(Table $table): Table
+                     ->visible(fn (Property $record): bool => in_array($record->status, [PropertyStatus::Draft, PropertyStatus::Available, PropertyStatus::UnderOffer], true)),
+                 DeleteAction::make(),
+             ])
+-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])])
++            ->toolbarActions([BulkActionGroup::make([...\App\Filament\PropertyPortals::bulkActions(), DeleteBulkAction::make()])])
+             ->defaultSort('created_at', 'desc');
+     }
+ 
 diff --git a/themes/real-estate-default/resources/lang/en/messages.php b/themes/real-estate-default/resources/lang/en/messages.php
 index d56e1f5a..0226d2fc 100644
 --- a/themes/real-estate-default/resources/lang/en/messages.php
