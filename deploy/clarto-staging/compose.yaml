@@ -217,7 +217,7 @@ services:
       WAHA_DASHBOARD_ENABLED: "false"
       WHATSAPP_SWAGGER_ENABLED: "false"
       WAHA_PRINT_QR: "False"
-      WAHA_EVENTS_DOWNLOAD_MEDIA: "false"    # el panel guarda solo texto
+      WAHA_EVENTS_DOWNLOAD_MEDIA: "true"     # el conector GHL guarda los archivos cifrados (WAHA los borra a los 180 s); Liberu guarda solo texto
       WAHA_API_DOWNLOAD_MEDIA: "false"
       WAHA_GOWS_DEVICE_REQUIRE_FULL_SYNC: "false"   # no sincronizar años de historial
       WAHA_LOG_FORMAT: JSON
@@ -225,7 +225,7 @@ services:
       # Conector WAHA ↔ HighLevel: webhook global ADEMÁS del de Liberu (que sigue en la configuración de la sesión).
       # Vacío = desactivado. Cambiarlo recrea el contenedor WAHA (la sesión vinculada se conserva en waha_sessions).
       WHATSAPP_HOOK_URL: ${CONECTOR_WAHA_WEBHOOK_URL:-}
-      WHATSAPP_HOOK_EVENTS: message,message.ack,session.status
+      WHATSAPP_HOOK_EVENTS: message.any,message.ack,session.status,call.received,call.accepted,call.rejected,message.reaction,message.edited,message.revoked
       WHATSAPP_HOOK_HMAC_KEY: ${CONECTOR_WAHA_HMAC_KEY:-}
       WHATSAPP_HOOK_RETRIES_POLICY: exponential
       WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "2"
