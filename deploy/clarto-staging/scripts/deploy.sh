@@ -23,7 +23,9 @@ wait_healthy redis 60
 
 log "Liberu: migrations"
 dc run --rm --no-deps -T liberu-app php artisan migrate --force
-if [ "$(dc run --rm --no-deps -T liberu-app php artisan tinker --execute='echo \App\Models\User::where("email", "admin@example.com")->count();' | tail -n1 | tr -dc 0-9)" = "0" ]; then
+# First deploy = no company yet. (It used to look for admin@example.com, so removing that test user re-ran the
+# seeders on 2026-11-24: they re-created it as owner of the company and added an empty «Default» company.)
+if [ "$(dc run --rm --no-deps -T liberu-app php artisan tinker --execute='echo \Liberu\Foundation\Organizations\Models\Team::query()->count();' | tail -n1 | tr -dc 0-9)" = "0" ]; then
   log "Liberu: first deploy — seeding teams, roles and admin (no demo properties)"
   # TeamSeeder builds its placeholder owner with a factory (needs dev-only Faker):
   # create that placeholder directly; UserSeeder hands the team to the admin and removes it.

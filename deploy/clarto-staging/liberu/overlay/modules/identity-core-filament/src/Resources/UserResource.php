@@ -56,7 +56,9 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->unique(ignoreRecord: true)
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    // The User model hides `email` from arrays, so the edit form loaded it empty and refused to save.
+                    ->formatStateUsing(fn (?Model $record, ?string $state): ?string => $state ?? $record?->getAttribute('email')),
                 // CLARTO: nobody types another person's password; they receive a link (App\Auth\AccessLink).
                 DateTimePicker::make('email_verified_at')
                     ->label('Email verified at'),
@@ -64,7 +66,16 @@ class UserResource extends Resource
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload()
-                    ->searchable(),
+                    ->searchable()
+                    // CLARTO: roles are per company (permission.teams). Filament's plain sync stored them with
+                    // team_id NULL, so admins created here were not admins *of the company* (2026-11-24).
+                    ->saveRelationshipsUsing(function (Model $record, ?array $state): void {
+                        $previous = getPermissionsTeamId();
+                        setPermissionsTeamId(\Filament\Facades\Filament::getTenant()?->getKey());
+                        $record->unsetRelation('roles');
+                        $record->syncRoles(array_map('intval', $state ?? []));
+                        setPermissionsTeamId($previous);
+                    }),
             ]);
     }
 
