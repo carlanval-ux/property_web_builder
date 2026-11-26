@@ -65,6 +65,10 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     sh -c 'npm ci --no-audit --no-fund && npm run build'
 
 FROM app
+# Visor de «Documentación de la empresa»: Word/Excel/OpenDocument → PDF en el propio servidor (+~438 MB; sin macros).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libreoffice-writer-nogui libreoffice-calc-nogui fonts-liberation2 fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
 COPY --from=assets --chown=www-data:www-data /var/www/html/public/build public/build
 
 # CLARTO identity (build context "brand" = deploy/clarto-staging/brand)
