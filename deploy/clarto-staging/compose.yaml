@@ -94,6 +94,15 @@ x-liberu-env: &liberu-env
   MAIL_IN_PASSWORD: ${MAIL_IN_PASSWORD:-}
   MAIL_IN_FOLDER: ${MAIL_IN_FOLDER:-INBOX}
   MAIL_IN_IA_MODELO: ${MAIL_IN_IA_MODELO:-google/gemma-4-26b-a4b-it:free}   # gratuito de OpenRouter; el panel puede elegir otro
+  # Tareas en TARMIO (usuario de integración). Lo configura scripts/set-tarmio.sh; simulado hasta --activar.
+  TARMIO_DRIVER: ${TARMIO_DRIVER:-simulado}
+  TARMIO_SUPABASE_URL: ${TARMIO_SUPABASE_URL:-}
+  TARMIO_SUPABASE_KEY: ${TARMIO_SUPABASE_KEY:-}
+  TARMIO_USUARIO: ${TARMIO_USUARIO:-}
+  TARMIO_PASSWORD: ${TARMIO_PASSWORD:-}
+  TARMIO_ORGANIZATION_ID: ${TARMIO_ORGANIZATION_ID:-}
+  TARMIO_PROJECT_ID: ${TARMIO_PROJECT_ID:-}
+  TARMIO_RESPONSABLE_CAPTACION: ${TARMIO_RESPONSABLE_CAPTACION:-}
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
   # Read-only catalog API for the website (clarto.es/inmuebles), server-to-server.
   CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
