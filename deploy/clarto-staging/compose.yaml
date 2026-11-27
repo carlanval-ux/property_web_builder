@@ -103,6 +103,16 @@ x-liberu-env: &liberu-env
   TARMIO_ORGANIZATION_ID: ${TARMIO_ORGANIZATION_ID:-}
   TARMIO_PROJECT_ID: ${TARMIO_PROJECT_ID:-}
   TARMIO_RESPONSABLE_CAPTACION: ${TARMIO_RESPONSABLE_CAPTACION:-}
+  # Firma electrónica con DocuSeal (cuenta en la nube del grupo; pruebas = nube global, producción = nube UE).
+  # Lo configura scripts/set-docuseal.sh; simulado hasta --activar. Webhook: https://<LIBERU_HOST>/api/v1/firma/docuseal
+  FIRMA_DRIVER: ${FIRMA_DRIVER:-simulado}
+  DOCUSEAL_ENVIRONMENT: ${DOCUSEAL_ENVIRONMENT:-sandbox}
+  DOCUSEAL_API_KEY_SANDBOX: ${DOCUSEAL_API_KEY_SANDBOX:-}
+  DOCUSEAL_WEBHOOK_SECRET_SANDBOX: ${DOCUSEAL_WEBHOOK_SECRET_SANDBOX:-}
+  DOCUSEAL_API_KEY_PROD: ${DOCUSEAL_API_KEY_PROD:-}
+  DOCUSEAL_WEBHOOK_SECRET_PROD: ${DOCUSEAL_WEBHOOK_SECRET_PROD:-}
+  DOCUSEAL_SEND_EMAIL: ${DOCUSEAL_SEND_EMAIL:-true}   # DocuSeal manda el enlace por correo (los SMS reales aún no están)
+  DOCUSEAL_DOWNLOAD_HOSTS: ${DOCUSEAL_DOWNLOAD_HOSTS:-}   # hosts extra de descarga de PDFs firmados, si la cuenta los usa
   SEED_ADMIN_PASSWORD: ${LIBERU_ADMIN_PASSWORD:?}
   # Read-only catalog API for the website (clarto.es/inmuebles), server-to-server.
   CATALOGO_API_KEY: ${CATALOGO_API_KEY:?}
